@@ -1,2 +1,3 @@
-# godtp
-A cross platform networking library written in Go
+# GoDTP
+
+A cross platform networking library written in Go.
