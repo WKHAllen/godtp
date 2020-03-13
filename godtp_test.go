@@ -2,9 +2,9 @@ package godtp
 
 import "testing"
 
-func TestHello(t *testing.T) {
-    want := "Hello, world."
-    if got := Hello(); got != want {
-        t.Errorf("Hello() = %q, want %q", got, want)
-    }
+func TestServer(t *testing.T) {
+	server := NewServer(nil, nil, nil, false, false)
+	if server.serving {
+		t.Errorf("Server should not be serving")
+	}
 }
