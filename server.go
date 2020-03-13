@@ -3,6 +3,7 @@ package godtp
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"net"
 	"sync"
 )
@@ -102,6 +103,45 @@ func (server *Server) Stop() error {
 	}
 
 	return nil
+}
+
+// Serving returns a boolean value representing whether or not the server is serving
+func (server *Server) Serving() bool {
+	return server.serving
+}
+
+// GetNetwork returns the name of the network
+func (server *Server) GetNetwork() string {
+	return server.sock.Addr().Network()
+}
+
+// GetAddr returns the address string
+func (server *Server) GetAddr() string {
+	return server.sock.Addr().String()
+}
+
+// GetHost returns the address host
+func (server *Server) GetHost() string {
+	addr := server.sock.Addr().String()
+	index := strings.LastIndex(addr, ":")
+	if index > -1 {
+		return addr[:index]
+	}
+	return addr
+}
+
+// GetPort returns the address port
+func (server *Server) GetPort() uint16 {
+	addr := server.sock.Addr().String()
+	index := strings.LastIndex(addr, ":")
+	if index > -1 {
+		port, err := strconv.Atoi(addr[index + 1:])
+		if err == nil {
+			return uint16(port)
+		}
+		return 0
+	}
+	return 0
 }
 
 // Serve clients
