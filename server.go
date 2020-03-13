@@ -43,7 +43,7 @@ func NewServerDefault(onRecv onRecvFunc, onConnect onConnectFunc, onDisconnect o
 	return NewServer(onRecv, onConnect, onDisconnect, false, false)
 }
 
-// Start a server
+// Start the server
 func (server *Server) Start(host string, port uint16) error {
 	if server.serving {
 		return fmt.Errorf("already serving")
@@ -82,7 +82,29 @@ func (server *Server) StartDefault() error {
 	return server.Start("0.0.0.0", 0)
 }
 
+// Stop the server
+func (server *Server) Stop() error {
+	server.serving = false
+
+	for _, sock := range server.socks {
+		err := sock.Close()
+		if err != nil {
+			return err
+		}
+	}
+	err := server.sock.Close()
+	if err != nil {
+		return err
+	}
+
+	if !server.blocking {
+		server.wg.Wait()
+	}
+
+	return nil
+}
+
 // Serve clients
 func (server *Server) serve() {
-	
+	defer server.wg.Done()
 }
