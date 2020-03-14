@@ -1,6 +1,7 @@
 package godtp
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -32,6 +33,8 @@ func TestServer(t *testing.T) {
 	assert(err == nil, t, "Error getting server address")
 	assert(host == "[::]", t, "Incorrect host: " + host)
 	assert(port >= 0 && port <= 65535, t, "Invalid port number" + strconv.Itoa(int(port)))
+	assert(server.sock.Addr().String() == host + ":" + strconv.Itoa(int(port)), t, "Address strings don't match")
+	fmt.Printf("Server running at %s:%d\n", host, port)
 
 	time.Sleep(waitTime)
 	err = server.Stop()

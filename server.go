@@ -21,7 +21,7 @@ type Server struct {
 	eventBlocking bool
 	serving bool
 	sock net.Listener
-	socks []net.Conn
+	clients map[uint]net.Conn
 	wg sync.WaitGroup
 }
 
@@ -35,7 +35,7 @@ func NewServer(onRecv onRecvFunc, onConnect onConnectFunc, onDisconnect onDiscon
 		blocking: blocking,
 		eventBlocking: eventBlocking,
 		serving: false,
-		socks: make([]net.Conn, 0),
+		clients: make(map[uint]net.Conn),
 	}
 }
 
@@ -87,8 +87,8 @@ func (server *Server) StartDefault() error {
 func (server *Server) Stop() error {
 	server.serving = false
 
-	for _, sock := range server.socks {
-		err := sock.Close()
+	for _, client := range server.clients {
+		err := client.Close()
 		if err != nil {
 			return err
 		}
@@ -110,9 +110,8 @@ func (server *Server) Serving() bool {
 	return server.serving
 }
 
-// GetAddr returns the address string
-func (server *Server) GetAddr() (string, uint16, error) {
-	addr := server.sock.Addr().String()
+// parseAddr parses an address
+func (server *Server) parseAddr(addr string) (string, uint16, error) {
 	index := strings.LastIndex(addr, ":")
 	if index > -1 {
 		port, err := strconv.Atoi(addr[index + 1:])
@@ -124,7 +123,18 @@ func (server *Server) GetAddr() (string, uint16, error) {
 	return "", 0, fmt.Errorf("No port found")
 }
 
+// GetAddr returns the address string
+func (server *Server) GetAddr() (string, uint16, error) {
+	return server.parseAddr(server.sock.Addr().String())
+}
 
+// GetClientAddr returns the address of a client
+func (server *Server) GetClientAddr(clientID uint) (string, uint16, error) {
+	if client, ok := server.clients[clientID]; ok {
+		return server.parseAddr(client.RemoteAddr().String())
+	}
+	return "", 0, fmt.Errorf("Client does not exist")
+}
 
 // Serve clients
 func (server *Server) serve() {
