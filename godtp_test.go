@@ -1,7 +1,7 @@
 package godtp
 
 import (
-	"strings"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -28,10 +28,10 @@ func TestServer(t *testing.T) {
 	assertErr(err == nil, t, err)
 	assert(server.Serving(), t, "Server should not be serving")
 
-	assert(server.GetNetwork() == "tcp", t, "Network should be 'tcp'")
-	assert(strings.HasPrefix(server.GetAddr(), "[::]:"), t, "Address should be '[::]:XXXXX'")
-	assert(server.GetHost() == "[::]", t, "Host should be '[::]'")
-	assert(server.GetPort() >= 0 && server.GetPort() <= 65535, t, "Invalid port number")
+	host, port, err := server.GetAddr()
+	assert(err == nil, t, "Error getting server address")
+	assert(host == "[::]", t, "Incorrect host: " + host)
+	assert(port >= 0 && port <= 65535, t, "Invalid port number" + strconv.Itoa(int(port)))
 
 	time.Sleep(waitTime)
 	err = server.Stop()

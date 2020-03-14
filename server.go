@@ -110,39 +110,21 @@ func (server *Server) Serving() bool {
 	return server.serving
 }
 
-// GetNetwork returns the name of the network
-func (server *Server) GetNetwork() string {
-	return server.sock.Addr().Network()
-}
-
 // GetAddr returns the address string
-func (server *Server) GetAddr() string {
-	return server.sock.Addr().String()
-}
-
-// GetHost returns the address host
-func (server *Server) GetHost() string {
-	addr := server.sock.Addr().String()
-	index := strings.LastIndex(addr, ":")
-	if index > -1 {
-		return addr[:index]
-	}
-	return addr
-}
-
-// GetPort returns the address port
-func (server *Server) GetPort() uint16 {
+func (server *Server) GetAddr() (string, uint16, error) {
 	addr := server.sock.Addr().String()
 	index := strings.LastIndex(addr, ":")
 	if index > -1 {
 		port, err := strconv.Atoi(addr[index + 1:])
 		if err == nil {
-			return uint16(port)
+			return addr[:index], uint16(port), nil
 		}
-		return 0
+		return "", 0, fmt.Errorf("Port conversion failed")
 	}
-	return 0
+	return "", 0, fmt.Errorf("No port found")
 }
+
+
 
 // Serve clients
 func (server *Server) serve() {
