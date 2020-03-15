@@ -2,15 +2,16 @@ package godtp
 
 import (
 	"fmt"
+	"io"
+	"net"
 	"strconv"
 	"strings"
-	"net"
 	"sync"
 )
 
-type onRecvFunc func(int, []byte)
-type onConnectFunc func(int)
-type onDisconnectFunc func(int)
+type onRecvFunc func(uint, []byte)
+type onConnectFunc func(uint)
+type onDisconnectFunc func(uint)
 
 // Server defines the socket server type
 type Server struct {
@@ -138,14 +139,16 @@ func (server *Server) RemoveClient(clientID uint) error {
 // Handle client connections
 func (server *Server) serve() {
 	defer server.wg.Done()
-	
+
 	for ; server.serving; {
 		conn, err := server.sock.Accept()
 		if err != nil {
-			fmt.Println(err.Error())
-			return
+			if server.serving {
+				fmt.Println("ACCEPT ERROR:", err)
+			}
+			break
 		}
-		
+
 		clientID := server.newClientID()
 		server.clients[clientID] = conn
 		go server.serveClient(clientID)
@@ -155,8 +158,30 @@ func (server *Server) serve() {
 // Serve clients
 func (server *Server) serveClient(clientID uint) {
 	defer server.wg.Done()
+	client := server.clients[clientID]
 
-	// TODO: serve client
+	sizebuffer := make([]byte, LENSIZE)
+	for ; server.serving; {
+		_, err := client.Read(sizebuffer)
+		if err != nil {
+			if err != io.EOF {
+				fmt.Println("READ ERROR:", err)
+			}
+			break
+		}
+
+		msgSize := asciiToDec(sizebuffer)
+		buffer := make([]byte, msgSize)
+		_, err = client.Read(buffer)
+		if err != nil {
+			if err != io.EOF {
+				fmt.Println("READ ERROR:", err)
+			}
+			break
+		}
+
+		server.onRecv(clientID, buffer)
+	}
 }
 
 // Parse an address
