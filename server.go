@@ -23,6 +23,7 @@ type Server struct {
 	sock net.Listener
 	clients map[uint]net.Conn
 	wg sync.WaitGroup
+	nextClientID uint
 }
 
 // NewServer creates a new socket server object
@@ -36,6 +37,7 @@ func NewServer(onRecv onRecvFunc, onConnect onConnectFunc, onDisconnect onDiscon
 		eventBlocking: eventBlocking,
 		serving: false,
 		clients: make(map[uint]net.Conn),
+		nextClientID: 0,
 	}
 }
 
@@ -133,12 +135,31 @@ func (server *Server) RemoveClient(clientID uint) error {
 	return fmt.Errorf("Client does not exist")
 }
 
-// Serve clients
+// Handle client connections
 func (server *Server) serve() {
 	defer server.wg.Done()
+	
+	for ; server.serving; {
+		conn, err := server.sock.Accept()
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+		
+		clientID := server.newClientID()
+		server.clients[clientID] = conn
+		go server.serveClient(clientID)
+	}
 }
 
-// parseAddr parses an address
+// Serve clients
+func (server *Server) serveClient(clientID uint) {
+	defer server.wg.Done()
+
+	// TODO: serve client
+}
+
+// Parse an address
 func (server *Server) parseAddr(addr string) (string, uint16, error) {
 	index := strings.LastIndex(addr, ":")
 	if index > -1 {
@@ -149,4 +170,10 @@ func (server *Server) parseAddr(addr string) (string, uint16, error) {
 		return "", 0, fmt.Errorf("Port conversion failed")
 	}
 	return "", 0, fmt.Errorf("No port found")
+}
+
+// Get a new client ID
+func (server *Server) newClientID() uint {
+	server.nextClientID++
+	return server.nextClientID - 1
 }
