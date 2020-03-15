@@ -45,6 +45,10 @@ func TestGoDTP(t *testing.T) {
 	err = server.Send([]byte{1, 3, 6}, 0)
 	assert(err.Error() == "client does not exist", t, "Send error expected")
 
+	// Create client
+	client := NewClientDefault(nil, nil)
+	assert(!client.Connected(), t, "Client should not be connected")
+
 	// Stop server
 	time.Sleep(waitTime)
 	err = server.Stop()

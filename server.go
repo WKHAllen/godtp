@@ -9,15 +9,15 @@ import (
 	"sync"
 )
 
-type onRecvFunc func(uint, []byte)
-type onConnectFunc func(uint)
-type onDisconnectFunc func(uint)
+type onRecvFuncServer func(uint, []byte)
+type onConnectFuncServer func(uint)
+type onDisconnectFuncServer func(uint)
 
 // Server defines the socket server type
 type Server struct {
-	onRecv onRecvFunc
-	onConnect onConnectFunc
-	onDisconnect onDisconnectFunc
+	onRecv onRecvFuncServer
+	onConnect onConnectFuncServer
+	onDisconnect onDisconnectFuncServer
 	blocking bool
 	eventBlocking bool
 	serving bool
@@ -28,7 +28,9 @@ type Server struct {
 }
 
 // NewServer creates a new socket server object
-func NewServer(onRecv onRecvFunc, onConnect onConnectFunc, onDisconnect onDisconnectFunc,
+func NewServer(onRecv onRecvFuncServer,
+			   onConnect onConnectFuncServer,
+			   onDisconnect onDisconnectFuncServer,
 			   blocking bool, eventBlocking bool) *Server {
 	return &Server{
 		onRecv: onRecv,
@@ -42,8 +44,11 @@ func NewServer(onRecv onRecvFunc, onConnect onConnectFunc, onDisconnect onDiscon
 	}
 }
 
-// NewServerDefault creates a new socket server object with blocking and eventBlocking set to false
-func NewServerDefault(onRecv onRecvFunc, onConnect onConnectFunc, onDisconnect onDisconnectFunc) *Server {
+// NewServerDefault creates a new socket server object with blocking and
+// eventBlocking set to false
+func NewServerDefault(onRecv onRecvFuncServer,
+					  onConnect onConnectFuncServer,
+					  onDisconnect onDisconnectFuncServer) *Server {
 	return NewServer(onRecv, onConnect, onDisconnect, false, false)
 }
 
@@ -140,7 +145,8 @@ func (server *Server) Send(data []byte, clientIDs ...uint) error {
 	return nil
 }
 
-// Serving returns a boolean value representing whether or not the server is serving
+// Serving returns a boolean value representing whether or not the server is
+// serving
 func (server *Server) Serving() bool {
 	return server.serving
 }
@@ -192,7 +198,7 @@ func (server *Server) serveClient(clientID uint) {
 	defer server.wg.Done()
 	client := server.clients[clientID]
 
-	sizebuffer := make([]byte, LENSIZE)
+	sizebuffer := make([]byte, lenSize)
 	for ; server.serving; {
 		_, err := client.Read(sizebuffer)
 		if err != nil {
