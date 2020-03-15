@@ -108,28 +108,8 @@ func (server *Server) Stop() error {
 	return nil
 }
 
-// Send data to a client
-func (server *Server) Send(data []byte, clientID uint) error {
-	if !server.serving {
-		return fmt.Errorf("server is not serving")
-	}
-
-	if client, ok := server.clients[clientID]; ok {
-		size := decToASCII(uint64(len(data)))
-		buffer := append(size, data...)
-
-		_, err := client.Write(buffer)
-		if err != nil {
-			fmt.Println("SEND ERROR:", err)
-		}
-
-		return nil
-	}
-	return fmt.Errorf("client does not exist")
-}
-
-// SendAll sends data to all clients
-func (server *Server) SendAll(data []byte) error {
+// Send data to clients
+func (server *Server) Send(data []byte, clientIDs ...uint) error {
 	if !server.serving {
 		return fmt.Errorf("server is not serving")
 	}
@@ -137,10 +117,23 @@ func (server *Server) SendAll(data []byte) error {
 	size := decToASCII(uint64(len(data)))
 	buffer := append(size, data...)
 
-	for _, client := range server.clients {
-		_, err := client.Write(buffer)
-		if err != nil {
-			fmt.Println("SEND ERROR:", err)
+	if len(clientIDs) == 0 {
+		for _, client := range server.clients {
+			_, err := client.Write(buffer)
+			if err != nil {
+				fmt.Println("SEND ERROR:", err)
+			}
+		}
+	} else {
+		for _, clientID := range clientIDs {
+			if client, ok := server.clients[clientID]; ok {
+				_, err := client.Write(buffer)
+				if err != nil {
+					fmt.Println("SEND ERROR:", err)
+				}
+			} else {
+				return fmt.Errorf("client does not exist")
+			}
 		}
 	}
 

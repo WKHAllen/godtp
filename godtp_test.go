@@ -19,7 +19,7 @@ func assertErr(value bool, t *testing.T, err error) {
 	}
 }
 
-func TestServer(t *testing.T) {
+func TestGoDTP(t *testing.T) {
 	waitTime := 100 * time.Millisecond
 
 	// Create server
@@ -40,7 +40,7 @@ func TestServer(t *testing.T) {
 	fmt.Printf("Server running at %s:%d\n", host, port)
 
 	// Send data
-	err = server.SendAll([]byte{1, 3, 6})
+	err = server.Send([]byte{1, 3, 6})
 	assertErr(err == nil, t, err)
 	err = server.Send([]byte{1, 3, 6}, 0)
 	assert(err.Error() == "client does not exist", t, "Send error expected")
