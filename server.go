@@ -50,7 +50,7 @@ func NewServerDefault(onRecv onRecvFunc, onConnect onConnectFunc, onDisconnect o
 // Start the server
 func (server *Server) Start(host string, port uint16) error {
 	if server.serving {
-		return fmt.Errorf("already serving")
+		return fmt.Errorf("server is already serving")
 	}
 
 	address := host + ":" + strconv.Itoa(int(port))
@@ -108,6 +108,45 @@ func (server *Server) Stop() error {
 	return nil
 }
 
+// Send data to a client
+func (server *Server) Send(data []byte, clientID uint) error {
+	if !server.serving {
+		return fmt.Errorf("server is not serving")
+	}
+
+	if client, ok := server.clients[clientID]; ok {
+		size := decToASCII(uint64(len(data)))
+		buffer := append(size, data...)
+
+		_, err := client.Write(buffer)
+		if err != nil {
+			fmt.Println("SEND ERROR:", err)
+		}
+
+		return nil
+	}
+	return fmt.Errorf("client does not exist")
+}
+
+// SendAll sends data to all clients
+func (server *Server) SendAll(data []byte) error {
+	if !server.serving {
+		return fmt.Errorf("server is not serving")
+	}
+
+	size := decToASCII(uint64(len(data)))
+	buffer := append(size, data...)
+
+	for _, client := range server.clients {
+		_, err := client.Write(buffer)
+		if err != nil {
+			fmt.Println("SEND ERROR:", err)
+		}
+	}
+
+	return nil
+}
+
 // Serving returns a boolean value representing whether or not the server is serving
 func (server *Server) Serving() bool {
 	return server.serving
@@ -123,7 +162,7 @@ func (server *Server) GetClientAddr(clientID uint) (string, uint16, error) {
 	if client, ok := server.clients[clientID]; ok {
 		return server.parseAddr(client.RemoteAddr().String())
 	}
-	return "", 0, fmt.Errorf("Client does not exist")
+	return "", 0, fmt.Errorf("client does not exist")
 }
 
 // RemoveClient disconnects a client from the server
@@ -133,7 +172,7 @@ func (server *Server) RemoveClient(clientID uint) error {
 		delete(server.clients, clientID)
 		return nil
 	}
-	return fmt.Errorf("Client does not exist")
+	return fmt.Errorf("client does not exist")
 }
 
 // Handle client connections
