@@ -91,6 +91,10 @@ func (server *Server) StartDefault() error {
 
 // Stop the server
 func (server *Server) Stop() error {
+	if !server.serving {
+		return fmt.Errorf("server is not serving")
+	}
+
 	server.serving = false
 
 	for _, client := range server.clients {
@@ -151,11 +155,19 @@ func (server *Server) Serving() bool {
 
 // GetAddr returns the address string
 func (server *Server) GetAddr() (string, uint16, error) {
+	if !server.serving {
+		return "", 0, fmt.Errorf("server is not serving")
+	}
+
 	return parseAddr(server.sock.Addr().String())
 }
 
 // GetClientAddr returns the address of a client
 func (server *Server) GetClientAddr(clientID uint) (string, uint16, error) {
+	if !server.serving {
+		return "", 0, fmt.Errorf("server is not serving")
+	}
+
 	if client, ok := server.clients[clientID]; ok {
 		return parseAddr(client.RemoteAddr().String())
 	}
@@ -164,6 +176,10 @@ func (server *Server) GetClientAddr(clientID uint) (string, uint16, error) {
 
 // RemoveClient disconnects a client from the server
 func (server *Server) RemoveClient(clientID uint) error {
+	if !server.serving {
+		return fmt.Errorf("server is not serving")
+	}
+
 	if client, ok := server.clients[clientID]; ok {
 		client.Close()
 		delete(server.clients, clientID)
