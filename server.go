@@ -2,7 +2,6 @@ package godtp
 
 import (
 	"fmt"
-	"io"
 	"net"
 	"strconv"
 	"strings"
@@ -207,9 +206,6 @@ func (server *Server) serveClient(clientID uint) {
 	for ; server.serving; {
 		_, err := client.Read(sizebuffer)
 		if err != nil {
-			if err != io.EOF {
-				fmt.Println("READ ERROR:", err)
-			}
 			break
 		}
 
@@ -217,9 +213,6 @@ func (server *Server) serveClient(clientID uint) {
 		buffer := make([]byte, msgSize)
 		_, err = client.Read(buffer)
 		if err != nil {
-			if err != io.EOF {
-				fmt.Println("READ ERROR:", err)
-			}
 			break
 		}
 

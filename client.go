@@ -98,8 +98,30 @@ func (client *Client) Connected() bool {
 	return client.connected
 }
 
+// Handle client events
 func (client *Client) handle() {
 	defer client.wg.Done()
 
-	// TODO: implement this
+	sizebuffer := make([]byte, lenSize)
+	for ; client.connected; {
+		_, err := client.sock.Read(sizebuffer)
+		if err != nil {
+			break
+		}
+
+		msgSize := asciiToDec(sizebuffer)
+		buffer := make([]byte, msgSize)
+		_, err = client.sock.Read(buffer)
+		if err != nil {
+			break
+		}
+
+		client.onRecv(buffer)
+	}
+
+	if client.connected {
+		client.connected = false
+		client.sock.Close()
+		client.onDisconnected()
+	}
 }
