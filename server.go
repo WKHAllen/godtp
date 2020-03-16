@@ -189,6 +189,7 @@ func (server *Server) serve() {
 
 		clientID := server.newClientID()
 		server.clients[clientID] = conn
+		server.wg.Add(1)
 		go server.serveClient(clientID)
 	}
 }
@@ -196,6 +197,10 @@ func (server *Server) serve() {
 // Serve clients
 func (server *Server) serveClient(clientID uint) {
 	defer server.wg.Done()
+
+	server.onConnect(clientID)
+	defer server.onDisconnect(clientID)
+
 	client := server.clients[clientID]
 
 	sizebuffer := make([]byte, lenSize)

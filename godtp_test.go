@@ -19,11 +19,31 @@ func assertErr(value bool, t *testing.T, err error) {
 	}
 }
 
+func onRecvServer(clientID uint, data []byte) {
+	fmt.Printf("Data received from client #%d: %s\n", clientID, data)
+}
+
+func onConnectServer(clientID uint) {
+	fmt.Printf("Client #%d connected\n", clientID)
+}
+
+func onDisconnectServer(clientID uint) {
+	fmt.Printf("Client #%d disconnected\n", clientID)
+}
+
+func onRecvClient(data []byte) {
+	fmt.Printf("Data received from server: %s\n", data)
+}
+
+func onDisconnectedClient() {
+	fmt.Printf("Disconnected from server\n")
+}
+
 func TestGoDTP(t *testing.T) {
 	waitTime := 100 * time.Millisecond
 
 	// Create server
-	server := NewServer(nil, nil, nil, false, false)
+	server := NewServer(onRecvServer, onConnectServer, onDisconnectServer, false, false)
 	assert(!server.Serving(), t, "Server should not be serving")
 
 	// Start server
@@ -46,8 +66,17 @@ func TestGoDTP(t *testing.T) {
 	assert(err.Error() == "client does not exist", t, "Send error expected")
 
 	// Create client
-	client := NewClientDefault(nil, nil)
+	client := NewClientDefault(onRecvClient, onDisconnectedClient)
 	assert(!client.Connected(), t, "Client should not be connected")
+
+	// Connect to server
+	err = client.Connect(host, port)
+	assertErr(err == nil, t, err)
+
+	// Disconnect from server
+	time.Sleep(waitTime)
+	err = client.Disconnect()
+	assertErr(err == nil, t, err)
 
 	// Stop server
 	time.Sleep(waitTime)
