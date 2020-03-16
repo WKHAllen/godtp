@@ -73,6 +73,15 @@ func TestGoDTP(t *testing.T) {
 	err = client.Connect(host, port)
 	assertErr(err == nil, t, err)
 
+	// Check that addresses match
+	host1, port1, err := client.GetAddr()
+	host2, port2, err := server.GetClientAddr(0)
+	assert(host1 == host2, t, "Client hosts do not match")
+	assert(port1 == port2, t, "Client ports do not match")
+	_, port3, err := client.GetServerAddr()
+	_, port4, err := server.GetAddr()
+	assert(port3 == port4, t, "Server ports do not match")
+
 	// Disconnect from server
 	time.Sleep(waitTime)
 	err = client.Disconnect()

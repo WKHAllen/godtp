@@ -79,7 +79,7 @@ func (client *Client) ConnectDefaultHost(port uint16) error {
 // Disconnect from the server
 func (client *Client) Disconnect() error {
 	client.connected = false
-	
+
 	err := client.sock.Close()
 	if err != nil {
 		return err
@@ -96,6 +96,16 @@ func (client *Client) Disconnect() error {
 // connected to a server
 func (client *Client) Connected() bool {
 	return client.connected
+}
+
+// GetAddr returns the address string
+func (client *Client) GetAddr() (string, uint16, error) {
+	return parseAddr(client.sock.LocalAddr().String())
+}
+
+// GetServerAddr returns the address of the server
+func (client *Client) GetServerAddr() (string, uint16, error) {
+	return parseAddr(client.sock.RemoteAddr().String())
 }
 
 // Handle client events

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 	"sync"
 )
 
@@ -152,13 +151,13 @@ func (server *Server) Serving() bool {
 
 // GetAddr returns the address string
 func (server *Server) GetAddr() (string, uint16, error) {
-	return server.parseAddr(server.sock.Addr().String())
+	return parseAddr(server.sock.Addr().String())
 }
 
 // GetClientAddr returns the address of a client
 func (server *Server) GetClientAddr(clientID uint) (string, uint16, error) {
 	if client, ok := server.clients[clientID]; ok {
-		return server.parseAddr(client.RemoteAddr().String())
+		return parseAddr(client.RemoteAddr().String())
 	}
 	return "", 0, fmt.Errorf("client does not exist")
 }
@@ -229,19 +228,6 @@ func (server *Server) serveClient(clientID uint) {
 			go server.onRecv(clientID, buffer)
 		}
 	}
-}
-
-// Parse an address
-func (server *Server) parseAddr(addr string) (string, uint16, error) {
-	index := strings.LastIndex(addr, ":")
-	if index > -1 {
-		port, err := strconv.Atoi(addr[index + 1:])
-		if err == nil {
-			return addr[:index], uint16(port), nil
-		}
-		return "", 0, fmt.Errorf("Port conversion failed")
-	}
-	return "", 0, fmt.Errorf("No port found")
 }
 
 // Get a new client ID
