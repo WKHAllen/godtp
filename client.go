@@ -1,7 +1,9 @@
 package godtp
 
 import (
+	"fmt"
 	"net"
+	"strconv"
 	"sync"
 )
 
@@ -45,8 +47,59 @@ func NewClientDefault(onRecv onRecvFuncClient,
 	}
 }
 
+// Connect to a server
+func (client *Client) Connect(host string, port uint16) error {
+	if client.connected {
+		return fmt.Errorf("client is already connected to a server")
+	}
+
+	address := host + ":" + strconv.Itoa(int(port))
+	conn, err := net.Dial("tcp", address)
+	if err != nil {
+		return err
+	}
+	client.sock = conn
+
+	client.connected = true
+	if client.blocking {
+		client.handle()
+	} else {
+		client.wg.Add(1)
+		go client.handle()
+	}
+
+	return nil
+}
+
+// ConnectDefaultHost connects to a server at the default host address
+func (client *Client) ConnectDefaultHost(port uint16) error {
+	return client.Connect("0.0.0.0", port)
+}
+
+// Disconnect from the server
+func (client *Client) Disconnect() error {
+	client.connected = false
+	
+	err := client.sock.Close()
+	if err != nil {
+		return err
+	}
+
+	if !client.blocking {
+		client.wg.Wait()
+	}
+
+	return nil
+}
+
 // Connected returns a boolean value representing whether or not the client is
 // connected to a server
 func (client *Client) Connected() bool {
 	return client.connected
+}
+
+func (client *Client) handle() {
+	defer client.wg.Done()
+
+	// TODO: implement this
 }
