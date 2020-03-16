@@ -197,8 +197,15 @@ func (server *Server) serve() {
 func (server *Server) serveClient(clientID uint) {
 	defer server.wg.Done()
 
-	server.onConnect(clientID)
-	defer server.onDisconnect(clientID)
+	if server.eventBlocking {
+		server.onConnect(clientID)
+		defer server.onDisconnect(clientID)
+	} else {
+		go server.onConnect(clientID)
+		defer func() {
+			go server.onDisconnect(clientID)
+		}()
+	}
 
 	client := server.clients[clientID]
 
@@ -216,7 +223,11 @@ func (server *Server) serveClient(clientID uint) {
 			break
 		}
 
-		server.onRecv(clientID, buffer)
+		if server.eventBlocking {
+			server.onRecv(clientID, buffer)
+		} else {
+			go server.onRecv(clientID, buffer)
+		}
 	}
 }
 

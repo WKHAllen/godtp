@@ -66,7 +66,7 @@ func TestGoDTP(t *testing.T) {
 	assert(err.Error() == "client does not exist", t, "Send error expected")
 
 	// Create client
-	client := NewClientDefault(onRecvClient, onDisconnectedClient)
+	client := NewClient(onRecvClient, onDisconnectedClient, false, false)
 	assert(!client.Connected(), t, "Client should not be connected")
 
 	// Connect to server
