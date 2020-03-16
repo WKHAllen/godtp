@@ -96,6 +96,23 @@ func (client *Client) Disconnect() error {
 	return nil
 }
 
+// Send data to the server
+func (client *Client) Send(data []byte) error {
+	if !client.connected {
+		return fmt.Errorf("client is not connected to a server")
+	}
+
+	size := decToASCII(uint64(len(data)))
+	buffer := append(size, data...)
+
+	_, err := client.sock.Write(buffer)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Connected returns a boolean value representing whether or not the client is
 // connected to a server
 func (client *Client) Connected() bool {

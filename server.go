@@ -128,7 +128,7 @@ func (server *Server) Send(data []byte, clientIDs ...uint) error {
 		for _, client := range server.clients {
 			_, err := client.Write(buffer)
 			if err != nil {
-				fmt.Println("SEND ERROR:", err)
+				return err
 			}
 		}
 	} else {
@@ -136,7 +136,7 @@ func (server *Server) Send(data []byte, clientIDs ...uint) error {
 			if client, ok := server.clients[clientID]; ok {
 				_, err := client.Write(buffer)
 				if err != nil {
-					fmt.Println("SEND ERROR:", err)
+					return err
 				}
 			} else {
 				return fmt.Errorf("client does not exist")
