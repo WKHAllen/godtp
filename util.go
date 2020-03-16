@@ -1,14 +1,13 @@
 package godtp
 
-import "math"
-
 const lenSize = 5
 
 // Convert decimal to ASCII
 func decToASCII(dec uint64) []byte {
 	ascii := make([]byte, lenSize)
-	for i := 0; i < lenSize; i++ {
-		ascii[i] = uint8(dec / uint64(math.Pow(256, float64(lenSize - i - 1))))
+	for i := lenSize - 1; i >= 0; i-- {
+		ascii[i] = uint8(dec)
+		dec >>= 8
 	}
 	return ascii
 }
@@ -17,7 +16,8 @@ func decToASCII(dec uint64) []byte {
 func asciiToDec(ascii []byte) uint64 {
 	var dec uint64 = 0
 	for i := 0; i < lenSize; i++ {
-		dec += uint64(float64(uint8(ascii[i])) * math.Pow(256, float64(lenSize - i - 1)))
+		dec <<= 8
+		dec += uint64(ascii[i])
 	}
 	return dec
 }
