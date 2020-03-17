@@ -155,20 +155,24 @@ func (client *Client) handle() {
 			break
 		}
 
-		if client.eventBlocking {
-			client.onRecv(buffer)
-		} else {
-			go client.onRecv(buffer)
+		if client.onRecv != nil {
+			if client.eventBlocking {
+				client.onRecv(buffer)
+			} else {
+				go client.onRecv(buffer)
+			}
 		}
 	}
 
 	if client.connected {
 		client.connected = false
 		client.sock.Close()
-		if client.eventBlocking {
-			client.onDisconnected()
-		} else {
-			go client.onDisconnected()
+		if client.onDisconnected != nil {
+			if client.eventBlocking {
+				client.onDisconnected()
+			} else {
+				go client.onDisconnected()
+			}
 		}
 	}
 }
