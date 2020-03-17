@@ -1,3 +1,225 @@
-# GoDTP
+# Go Data Transfer Protocol
 
-A cross platform networking library written in Go.
+GoDTP is a cross platform networking library written in Go. It is based on [dtplib](https://github.com/WKHAllen/dtplib) and [cdtp](https://github.com/WKHAllen/cdtp).
+
+## Installation
+
+First, install the package:
+
+```console
+$ go get -u github.com/WKHAllen/godtp
+```
+
+Then import it:
+
+```go
+import "github.com/WKHAllen/godtp"
+```
+
+## Example
+
+See [the test file](godtp_test.go) for a basic example.
+
+## Client
+
+Below are the defined client types and functions:
+
+### type Client
+
+```go
+type Client struct {
+    // contains filtered or unexported fields
+}
+```
+
+Client defines the socket client type.
+
+### func NewClient
+
+```go
+func NewClient(onRecv onRecvFuncClient,
+    onDisconnected onDisconnectedFuncClient,
+    blocking bool, eventBlocking bool) *Client
+```
+
+NewClient creates a new socket client object.
+
+### func NewClientDefault
+
+```go
+func NewClientDefault(onRecv onRecvFuncClient,
+    onDisconnected onDisconnectedFuncClient) *Client
+```
+
+NewClientDefault creates a new socket client object with blocking and eventBlocking set to false.
+
+### func (*Client) Connect
+
+```go
+func (client *Client) Connect(host string, port uint16) error
+```
+
+Connect to a server.
+
+### func (*Client) ConnectDefaultHost
+
+```go
+func (client *Client) ConnectDefaultHost(port uint16) error
+```
+
+ConnectDefaultHost connects to a server at the default host address.
+
+### func (*Client) Connected
+
+```go
+func (client *Client) Connected() bool
+```
+
+Connected returns a boolean value representing whether or not the client is connected to a server.
+
+### func (*Client) Disconnect
+
+```go
+func (client *Client) Disconnect() error
+```
+
+Disconnect from the server.
+
+### func (*Client) GetAddr
+
+```go
+func (client *Client) GetAddr() (string, uint16, error)
+```
+
+GetAddr returns the address string.
+
+### func (*Client) GetServerAddr
+
+```go
+func (client *Client) GetServerAddr() (string, uint16, error)
+```
+
+GetServerAddr returns the address of the server.
+
+### func (*Client) Send
+
+```go
+func (client *Client) Send(data []byte) error
+```
+
+Send data to the server.
+
+## Server
+
+Below are the defined server types and functions:
+
+### type Server
+
+```go
+type Server struct {
+    // contains filtered or unexported fields
+}
+```
+
+Server defines the socket server type.
+
+### func NewServer
+
+```go
+func NewServer(onRecv onRecvFuncServer,
+    onConnect onConnectFuncServer,
+    onDisconnect onDisconnectFuncServer,
+    blocking bool, eventBlocking bool) *Server
+```
+
+NewServer creates a new socket server object.
+
+### func NewServerDefault
+
+```go
+func NewServerDefault(onRecv onRecvFuncServer,
+    onConnect onConnectFuncServer,
+    onDisconnect onDisconnectFuncServer) *Server
+```
+
+NewServerDefault creates a new socket server object with blocking and eventBlocking set to false.
+
+### func (*Server) GetAddr
+
+```go
+func (server *Server) GetAddr() (string, uint16, error)
+```
+
+GetAddr returns the address string.
+
+### func (*Server) GetClientAddr
+
+```go
+func (server *Server) GetClientAddr(clientID uint) (string, uint16, error)
+```
+
+GetClientAddr returns the address of a client.
+
+### func (*Server) RemoveClient
+
+```go
+func (server *Server) RemoveClient(clientID uint) error
+```
+
+RemoveClient disconnects a client from the server.
+
+### func (*Server) Send
+
+```go
+func (server *Server) Send(data []byte, clientIDs ...uint) error
+```
+
+Send data to clients.
+
+### func (*Server) Serving
+
+```go
+func (server *Server) Serving() bool
+```
+
+Serving returns a boolean value representing whether or not the server is serving.
+
+### func (*Server) Start
+
+```go
+func (server *Server) Start(host string, port uint16) error
+```
+
+Start the server.
+
+### func (*Server) StartDefault
+
+```go
+func (server *Server) StartDefault() error
+```
+
+StartDefault starts the server on 0.0.0.0:0.
+
+### func (*Server) StartDefaultHost
+
+```go
+func (server *Server) StartDefaultHost(port uint16) error
+```
+
+StartDefaultHost starts the server at the default host address.
+
+### func (*Server) StartDefaultPort
+
+```go
+func (server *Server) StartDefaultPort(host string) error
+```
+
+StartDefaultPort starts the server on the default port.
+
+### func (*Server) Stop
+
+```go
+func (server *Server) Stop() error
+```
+
+Stop the server.
