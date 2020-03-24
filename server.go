@@ -1,6 +1,8 @@
 package godtp
 
 import (
+	"crypto/rsa"
+	"encoding/gob"
 	"fmt"
 	"net"
 	"strconv"
@@ -21,6 +23,7 @@ type Server struct {
 	serving bool
 	sock net.Listener
 	clients map[uint]net.Conn
+	keys map[uint][]byte
 	wg sync.WaitGroup
 	nextClientID uint
 }
@@ -38,6 +41,7 @@ func NewServer(onRecv onRecvFuncServer,
 		eventBlocking: eventBlocking,
 		serving: false,
 		clients: make(map[uint]net.Conn),
+		keys: make(map[uint][]byte),
 		nextClientID: 0,
 	}
 }
@@ -183,6 +187,7 @@ func (server *Server) RemoveClient(clientID uint) error {
 	if client, ok := server.clients[clientID]; ok {
 		client.Close()
 		delete(server.clients, clientID)
+		delete(server.keys, clientID)
 		return nil
 	}
 	return fmt.Errorf("client does not exist")
@@ -195,13 +200,23 @@ func (server *Server) serve() {
 	for ; server.serving; {
 		conn, err := server.sock.Accept()
 		if err != nil {
-			if server.serving {
-				panic(err)
+			if !server.serving {
+				break
+			} else {
+				continue
 			}
-			break
 		}
 
 		clientID := server.newClientID()
+		err = server.exchangeKeys(clientID, conn)
+		if err != nil {
+			if !server.serving {
+				break
+			} else {
+				continue
+			}
+		}
+
 		server.clients[clientID] = conn
 		server.wg.Add(1)
 		go server.serveClient(clientID)
@@ -260,4 +275,30 @@ func (server *Server) serveClient(clientID uint) {
 func (server *Server) newClientID() uint {
 	server.nextClientID++
 	return server.nextClientID - 1
+}
+
+// Exchange keys with a client
+func (server *Server) exchangeKeys(clientID uint, client net.Conn) error {
+	pub := rsa.PublicKey{}
+	dec := gob.NewDecoder(client)
+	dec.Decode(&pub)
+
+	key, err := newKey()
+	if err != nil {
+		return err
+	}
+
+	encryptedKey, err := asymmetricEncrypt(pub, key)
+
+	size := decToASCII(uint64(len(encryptedKey)))
+	buffer := append(size, encryptedKey...)
+
+	_, err = client.Write(buffer)
+	if err != nil {
+		return err
+	}
+
+	server.keys[clientID] = key
+
+	return nil
 }

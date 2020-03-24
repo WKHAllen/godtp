@@ -1,6 +1,7 @@
 package godtp
 
 import (
+	"encoding/gob"
 	"fmt"
 	"net"
 	"strconv"
@@ -18,6 +19,7 @@ type Client struct {
 	eventBlocking bool
 	connected bool
 	sock net.Conn
+	key []byte
 	wg sync.WaitGroup
 }
 
@@ -59,8 +61,13 @@ func (client *Client) Connect(host string, port uint16) error {
 		return err
 	}
 	client.sock = conn
-
 	client.connected = true
+
+	err = client.exchangeKeys()
+	if err != nil {
+		return err
+	}
+
 	if client.blocking {
 		client.handle()
 	} else {
@@ -175,4 +182,38 @@ func (client *Client) handle() {
 			}
 		}
 	}
+}
+
+// Exchange keys with the server
+func (client *Client) exchangeKeys() error {
+	priv, err := newKeys()
+	if err != nil {
+		return err
+	}
+
+	pub := priv.PublicKey
+	enc := gob.NewEncoder(client.sock)
+	enc.Encode(&pub)
+
+	sizebuffer := make([]byte, lenSize)
+	_, err = client.sock.Read(sizebuffer)
+	if err != nil {
+		return err
+	}
+
+	msgSize := asciiToDec(sizebuffer)
+	buffer := make([]byte, msgSize)
+	_, err = client.sock.Read(buffer)
+	if err != nil {
+		return err
+	}
+
+	key, err := asymmetricDecrypt(priv, buffer)
+	if err != nil {
+		return err
+	}
+
+	client.key = key
+
+	return nil
 }

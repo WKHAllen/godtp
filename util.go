@@ -56,10 +56,10 @@ func newKeys() (*rsa.PrivateKey, error) {
 }
 
 // Encrypt using RSA
-func asymmetricEncrypt(priv *rsa.PrivateKey, plaintext []byte) ([]byte, error) {
+func asymmetricEncrypt(pub rsa.PublicKey, plaintext []byte) ([]byte, error) {
 	rng := rand.Reader
 	label := []byte(msgLabel)
-	ciphertext, err := rsa.EncryptOAEP(sha256.New(), rng, &priv.PublicKey, plaintext, label)
+	ciphertext, err := rsa.EncryptOAEP(sha256.New(), rng, &pub, plaintext, label)
 	return ciphertext, err
 }
 
