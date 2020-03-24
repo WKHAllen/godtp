@@ -1,12 +1,19 @@
 package godtp
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
 	"fmt"
-	"strings"
+	"io"
 	"strconv"
+	"strings"
 )
 
 const lenSize = 5
+const msgLabel = "message"
 
 // Convert decimal to ASCII
 func decToASCII(dec uint64) []byte {
@@ -39,4 +46,70 @@ func parseAddr(addr string) (string, uint16, error) {
 		return "", 0, fmt.Errorf("Port conversion failed")
 	}
 	return "", 0, fmt.Errorf("No port found")
+}
+
+// Generate a new 2048-bit RSA key pair
+func newKeys() (*rsa.PrivateKey, error) {
+	rng := rand.Reader
+	priv, err := rsa.GenerateKey(rng, 2048)
+	return priv, err
+}
+
+// Encrypt using RSA
+func asymmetricEncrypt(priv *rsa.PrivateKey, plaintext []byte) ([]byte, error) {
+	rng := rand.Reader
+	label := []byte(msgLabel)
+	ciphertext, err := rsa.EncryptOAEP(sha256.New(), rng, &priv.PublicKey, plaintext, label)
+	return ciphertext, err
+}
+
+// Decrypt using RSA
+func asymmetricDecrypt(priv *rsa.PrivateKey, ciphertext []byte) ([]byte, error) {
+	rng := rand.Reader
+	label := []byte(msgLabel)
+	plaintext, err := rsa.DecryptOAEP(sha256.New(), rng, priv, ciphertext, label)
+	return plaintext, err
+}
+
+// Generate a new 256-bit AES key
+func newKey() ([]byte, error) {
+	key := make([]byte, 32)
+	_, err := rand.Read(key)
+	return key, err
+}
+
+// Encrypt using AES
+func encrypt(key, plaintext []byte) ([]byte, error) {
+    block, err := aes.NewCipher(key)
+    if err != nil {
+        return []byte{}, err
+	}
+
+    ciphertext := make([]byte, aes.BlockSize + len(plaintext))
+    iv := ciphertext[:aes.BlockSize]
+    if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+        return []byte{}, err
+	}
+
+    cfb := cipher.NewCFBEncrypter(block, iv)
+    cfb.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
+    return ciphertext, nil
+}
+
+// Decrypt using AES
+func decrypt(key []byte, ciphertext []byte) ([]byte, error) {
+    block, err := aes.NewCipher(key)
+    if err != nil {
+        return []byte{}, err
+	}
+
+    if len(ciphertext) < aes.BlockSize {
+        return []byte{}, fmt.Errorf("ciphertext too short")
+	}
+
+    iv := ciphertext[:aes.BlockSize]
+    plaintext := ciphertext[aes.BlockSize:]
+    cfb := cipher.NewCFBDecrypter(block, iv)
+    cfb.XORKeyStream(plaintext, plaintext)
+    return plaintext, nil
 }
