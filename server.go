@@ -196,7 +196,7 @@ func (server *Server) serve() {
 		conn, err := server.sock.Accept()
 		if err != nil {
 			if server.serving {
-				fmt.Println("ACCEPT ERROR:", err)
+				panic(err)
 			}
 			break
 		}
