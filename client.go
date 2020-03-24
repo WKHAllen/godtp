@@ -109,10 +109,15 @@ func (client *Client) Send(data []byte) error {
 		return fmt.Errorf("client is not connected to a server")
 	}
 
-	size := decToASCII(uint64(len(data)))
-	buffer := append(size, data...)
+	encryptedData, err := encrypt(client.key, data)
+	if err != nil {
+		return err
+	}
 
-	_, err := client.sock.Write(buffer)
+	size := decToASCII(uint64(len(encryptedData)))
+	buffer := append(size, encryptedData...)
+
+	_, err = client.sock.Write(buffer)
 	if err != nil {
 		return err
 	}
@@ -162,11 +167,16 @@ func (client *Client) handle() {
 			break
 		}
 
+		data, err := decrypt(client.key, buffer)
+		if err != nil {
+			break
+		}
+
 		if client.onRecv != nil {
 			if client.eventBlocking {
-				client.onRecv(buffer)
+				client.onRecv(data)
 			} else {
-				go client.onRecv(buffer)
+				go client.onRecv(data)
 			}
 		}
 	}

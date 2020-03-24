@@ -125,12 +125,17 @@ func (server *Server) Send(data []byte, clientIDs ...uint) error {
 		return fmt.Errorf("server is not serving")
 	}
 
-	size := decToASCII(uint64(len(data)))
-	buffer := append(size, data...)
-
 	if len(clientIDs) == 0 {
-		for _, client := range server.clients {
-			_, err := client.Write(buffer)
+		for clientID, client := range server.clients {
+			encryptedData, err := encrypt(server.keys[clientID], data)
+			if err != nil {
+				return err
+			}
+
+			size := decToASCII(uint64(len(encryptedData)))
+			buffer := append(size, encryptedData...)
+
+			_, err = client.Write(buffer)
 			if err != nil {
 				return err
 			}
@@ -138,7 +143,15 @@ func (server *Server) Send(data []byte, clientIDs ...uint) error {
 	} else {
 		for _, clientID := range clientIDs {
 			if client, ok := server.clients[clientID]; ok {
-				_, err := client.Write(buffer)
+				encryptedData, err := encrypt(server.keys[clientID], data)
+				if err != nil {
+					return err
+				}
+
+				size := decToASCII(uint64(len(encryptedData)))
+				buffer := append(size, encryptedData...)
+
+				_, err = client.Write(buffer)
 				if err != nil {
 					return err
 				}
@@ -261,11 +274,16 @@ func (server *Server) serveClient(clientID uint) {
 			break
 		}
 
+		data, err := decrypt(server.keys[clientID], buffer)
+		if err != nil {
+			break
+		}
+
 		if server.onRecv != nil {
 			if server.eventBlocking {
-				server.onRecv(clientID, buffer)
+				server.onRecv(clientID, data)
 			} else {
-				go server.onRecv(clientID, buffer)
+				go server.onRecv(clientID, data)
 			}
 		}
 	}
