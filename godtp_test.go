@@ -53,7 +53,7 @@ func TestGoDTP(t *testing.T) {
 
 	// Check server address info
 	host, port, err := server.GetAddr()
-	assert(err == nil, t, "Error getting server address")
+	assertErr(err == nil, t, err)
 	assert(host == "[::]", t, "Incorrect host: " + host)
 	assert(port >= 0 && port <= 65535, t, "Invalid port number" + strconv.Itoa(int(port)))
 	assert(server.sock.Addr().String() == host + ":" + strconv.Itoa(int(port)), t, "Address strings don't match")
