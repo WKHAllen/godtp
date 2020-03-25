@@ -15,7 +15,7 @@ func NewServerChan() *ServerChan {
 		server: NewServer(nil, nil, nil, false, false),
 		sendChans: make(map[uint]chan []byte),
 		recvChans: make(map[uint]chan []byte),
-		connectChan: make(chan chan []byte),
+		connectChan: make(chan chan []byte, 2),
 	}
 	server.server.onRecv = server.onRecvCallback
 	server.server.onConnect = server.onConnectCallback
