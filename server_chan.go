@@ -1,17 +1,11 @@
 package godtp
 
-// ServerChanPair defines the paired send and receive channels
-type ServerChanPair struct {
-	SendChan chan []byte
-	RecvChan chan []byte
-}
-
 // ServerChan defines the socket server chan type
 type ServerChan struct {
 	server *Server
 	sendChans map[uint]chan []byte
 	recvChans map[uint]chan []byte
-	connectChan chan ServerChanPair
+	connectChan chan chan []byte
 }
 
 // NewServerChan creates a new socket server object, using channels rather
@@ -21,7 +15,7 @@ func NewServerChan() *ServerChan {
 		server: NewServer(nil, nil, nil, false, false),
 		sendChans: make(map[uint]chan []byte),
 		recvChans: make(map[uint]chan []byte),
-		connectChan: make(chan ServerChanPair),
+		connectChan: make(chan chan []byte),
 	}
 	server.server.onRecv = server.onRecvCallback
 	server.server.onConnect = server.onConnectCallback
@@ -30,7 +24,7 @@ func NewServerChan() *ServerChan {
 }
 
 // Start the server
-func (server *ServerChan) Start(host string, port uint16) (chan ServerChanPair, error) {
+func (server *ServerChan) Start(host string, port uint16) (chan chan []byte, error) {
 	err := server.server.Start(host, port)
 	if err != nil {
 		return nil, err
@@ -39,17 +33,17 @@ func (server *ServerChan) Start(host string, port uint16) (chan ServerChanPair, 
 }
 
 // StartDefaultHost starts the server at the default host address
-func (server *ServerChan) StartDefaultHost(port uint16) (chan ServerChanPair, error) {
+func (server *ServerChan) StartDefaultHost(port uint16) (chan chan []byte, error) {
 	return server.Start("0.0.0.0", port)
 }
 
 // StartDefaultPort starts the server on the default port
-func (server *ServerChan) StartDefaultPort(host string) (chan ServerChanPair, error) {
+func (server *ServerChan) StartDefaultPort(host string) (chan chan []byte, error) {
 	return server.Start(host, 0)
 }
 
 // StartDefault starts the server on 0.0.0.0:0
-func (server *ServerChan) StartDefault() (chan ServerChanPair, error) {
+func (server *ServerChan) StartDefault() (chan chan []byte, error) {
 	return server.Start("0.0.0.0", 0)
 }
 
@@ -98,11 +92,8 @@ func (server *ServerChan) onConnectCallback(clientID uint) {
 
 	go server.serveClient(clientID)
 
-	chanPair := ServerChanPair{
-		SendChan: sendChan,
-		RecvChan: recvChan,
-	}
-	server.connectChan <- chanPair
+	server.connectChan <- sendChan
+	server.connectChan <- recvChan
 }
 
 // Handle client disconnecting
