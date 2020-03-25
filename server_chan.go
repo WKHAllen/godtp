@@ -16,9 +16,9 @@ type ServerChan struct {
 
 // NewServerChan creates a new socket server object, using channels rather
 // than callbacks
-func NewServerChan(blocking bool, eventBlocking bool) *ServerChan {
+func NewServerChan() *ServerChan {
 	server := &ServerChan{
-		server: NewServer(nil, nil, nil, blocking, eventBlocking),
+		server: NewServer(nil, nil, nil, false, false),
 		sendChans: make(map[uint]chan []byte),
 		recvChans: make(map[uint]chan []byte),
 		connectChan: make(chan ServerChanPair),
@@ -27,12 +27,6 @@ func NewServerChan(blocking bool, eventBlocking bool) *ServerChan {
 	server.server.onConnect = server.onConnectCallback
 	server.server.onDisconnect = server.onDisconnectCallback
 	return server
-}
-
-// NewServerChanDefault creates a new socket server chan object with blocking
-// and eventBlocking set to false
-func NewServerChanDefault() *ServerChan {
-	return NewServerChan(false, false)
 }
 
 // Start the server
