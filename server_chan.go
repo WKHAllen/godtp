@@ -80,6 +80,7 @@ func (server *ServerChan) GetClientAddr(clientID uint) (string, uint16, error) {
 	return server.server.GetClientAddr(clientID)
 }
 
+// Handle message sending, channel closing, and client disconnecting
 func (server *ServerChan) serveClient(clientID uint) {
 	for msg := range server.sendChans[clientID] {
 		server.server.Send(msg, clientID)
@@ -89,10 +90,12 @@ func (server *ServerChan) serveClient(clientID uint) {
 	server.server.RemoveClient(clientID)
 }
 
+// Handle message receiving
 func (server *ServerChan) onRecvCallback(clientID uint, msg []byte) {
 	server.recvChans[clientID] <- msg
 }
 
+// Handle client connecting
 func (server *ServerChan) onConnectCallback(clientID uint) {
 	sendChan := make(chan []byte)
 	recvChan := make(chan []byte)
@@ -108,6 +111,7 @@ func (server *ServerChan) onConnectCallback(clientID uint) {
 	server.connectChan <- chanPair
 }
 
+// Handle client disconnecting
 func (server *ServerChan) onDisconnectCallback(clientID uint) {
 	if _, ok := <-server.sendChans[clientID]; ok {
 		close(server.sendChans[clientID])
