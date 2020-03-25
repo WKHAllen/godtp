@@ -65,6 +65,7 @@ func (client *ClientChan) handle() {
 	}
 
 	client.onDisconnectedCallback()
+	client.client.Disconnect()
 }
 
 // Handle message receiving
