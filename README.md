@@ -20,7 +20,7 @@ import "github.com/WKHAllen/godtp"
 
 See [the test file](godtp_test.go) for a basic example.
 
-## Client
+## Client (using callbacks)
 
 Below are the defined client types and functions:
 
@@ -109,7 +109,7 @@ func (client *Client) Send(data []byte) error
 
 Send data to the server.
 
-## Server
+## Server (using callbacks)
 
 Below are the defined server types and functions:
 
@@ -220,6 +220,162 @@ StartDefaultPort starts the server on the default port.
 
 ```go
 func (server *Server) Stop() error
+```
+
+Stop the server.
+
+## Client (using channels)
+
+Below are the defined client channel types and functions:
+
+### type ClientChan
+
+```go
+type ClientChan struct {
+    // contains filtered or unexported fields
+}
+```
+
+ClientChan defines the socket client chan type.
+
+### func NewClientChan
+
+```go
+func NewClientChan() *ClientChan
+```
+
+NewClientChan creates a new socket client object, using channels rather than callbacks.
+
+### func (*ClientChan) Connect
+
+```go
+func (client *ClientChan) Connect(host string, port uint16) (chan []byte, chan []byte, error)
+```
+
+Connect to a server.
+
+### func (*ClientChan) ConnectDefaultHost
+
+```go
+func (client *ClientChan) ConnectDefaultHost(port uint16) (chan []byte, chan []byte, error)
+```
+
+ConnectDefaultHost connects to a server at the default host address.
+
+### func (*ClientChan) Connected
+
+```go
+func (client *ClientChan) Connected() bool
+```
+
+Connected returns a boolean value representing whether or not the client is connected to a server.
+
+### func (*ClientChan) Disconnect
+
+```go
+func (client *ClientChan) Disconnect() error
+```
+
+Disconnect from the server.
+
+### func (*ClientChan) GetAddr
+
+```go
+func (client *ClientChan) GetAddr() (string, uint16, error)
+```
+
+GetAddr returns the address string.
+
+### func (*ClientChan) GetServerAddr
+
+```go
+func (client *ClientChan) GetServerAddr() (string, uint16, error)
+```
+
+GetServerAddr returns the address of the server.
+
+## Server (using channels)
+
+Below are the defined server channel types and functions:
+
+### type ServerChan
+
+```go
+type ServerChan struct {
+    // contains filtered or unexported fields
+}
+```
+
+ServerChan defines the socket server chan type.
+
+### func NewServerChan
+
+```go
+func NewServerChan() *ServerChan
+```
+
+NewServerChan creates a new socket server object, using channels rather than callbacks.
+
+### func (*ServerChan) GetAddr
+
+```go
+func (server *ServerChan) GetAddr() (string, uint16, error)
+```
+
+GetAddr returns the address string.
+
+### func (*ServerChan) GetClientAddr
+
+```go
+func (server *ServerChan) GetClientAddr(clientID uint) (string, uint16, error)
+```
+
+GetClientAddr returns the address of a client.
+
+### func (*ServerChan) Serving
+
+```go
+func (server *ServerChan) Serving() bool
+```
+
+Serving returns a boolean value representing whether or not the server is serving.
+
+### func (*ServerChan) Start
+
+```go
+func (server *ServerChan) Start(host string, port uint16) (chan chan []byte, error)
+```
+
+Start the server.
+
+### func (*ServerChan) StartDefault
+
+```go
+func (server *ServerChan) StartDefault() (chan chan []byte, error)
+```
+
+StartDefault starts the server on 0.0.0.0:0.
+
+### func (*ServerChan) StartDefaultHost
+
+```go
+func (server *ServerChan) StartDefaultHost(port uint16) (chan chan []byte, error)
+```
+
+StartDefaultHost starts the server at the default host address.
+
+### func (*ServerChan) StartDefaultPort
+
+```go
+func (server *ServerChan) StartDefaultPort(host string) (chan chan []byte, error)
+```
+
+StartDefaultPort starts the server on the default port.
+
+### func (*ServerChan) Stop
+
+```go
+func (server *ServerChan) Stop() error
 ```
 
 Stop the server.
