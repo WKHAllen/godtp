@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strconv"
@@ -15,6 +16,16 @@ import (
 
 const lenSize = 5
 const msgLabel = "message"
+
+// Encode an object so it can be sent through a socket
+func Encode(object interface{}) ([]byte, error) {
+	return json.Marshal(object)
+}
+
+// Decode an object that came through a socket
+func Decode(bytestring []byte, object interface{}) error {
+	return json.Unmarshal(bytestring, object)
+}
 
 // Convert decimal to ASCII
 func decToASCII(dec uint64) []byte {

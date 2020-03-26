@@ -41,7 +41,7 @@ func onDisconnectedClient() {
 	fmt.Printf("Disconnected from server\n")
 }
 
-func TestGoDTPMain(t *testing.T) {
+func TestMain(t *testing.T) {
 	// Create server
 	server := NewServer(onRecvServer, onConnectServer, onDisconnectServer, false, false)
 	assert(!server.Serving(), t, "Server should not be serving")
@@ -100,7 +100,7 @@ func TestGoDTPMain(t *testing.T) {
 	assert(!server.Serving(), t, "Server should not be serving")
 }
 
-func TestGoDTPChan(t *testing.T) {
+func TestChan(t *testing.T) {
 	// Create and start server
 	server := NewServerChan()
 	connectChan, err := server.StartDefault()
@@ -145,6 +145,61 @@ func TestGoDTPChan(t *testing.T) {
 		for range serverRecvChan {}
 		fmt.Println("Client disconnected")
 	}()
+
+	// Disconnect from server
+	time.Sleep(waitTime)
+	err = client.Disconnect()
+	assertErr(err == nil, t, err)
+
+	// Stop server
+	time.Sleep(waitTime)
+	err = server.Stop()
+	assertErr(err == nil, t, err)
+}
+
+func TestEncode(t *testing.T) {
+	// Create and start server
+	server := NewServerChan()
+	connectChan, err := server.StartDefault()
+	assertErr(err == nil, t, err)
+
+	// Get server address
+	host, port, err := server.GetAddr()
+	assertErr(err == nil, t, err)
+
+	// Create client and connect to server
+	client := NewClientChan()
+	clientSendChan, clientRecvChan, err := client.Connect(host, port)
+	assertErr(err == nil, t, err)
+
+	// Get server send and receive channels
+	time.Sleep(waitTime)
+	serverSendChan := <-connectChan
+	serverRecvChan := <-connectChan
+
+	// Send data from server to client
+	time.Sleep(waitTime)
+	enc1, err := Encode(123)
+	assertErr(err == nil, t, err)
+	serverSendChan <- enc1
+	time.Sleep(waitTime)
+	clientRecv := <-clientRecvChan
+	var dec1 int
+	Decode(clientRecv, &dec1)
+	fmt.Printf("Data received from server: %d\n", dec1)
+	assert(dec1 == 123, t, "Unexpected data received from server")
+
+	// Send data from client to server
+	time.Sleep(waitTime)
+	enc2, err := Encode("Test 123")
+	assertErr(err == nil, t, err)
+	clientSendChan <- enc2
+	time.Sleep(waitTime)
+	serverRecv := <-serverRecvChan
+	var dec2 string
+	Decode(serverRecv, &dec2)
+	fmt.Printf("Data received from client: %s\n", dec2)
+	assert(dec2 == "Test 123", t, "Unexpected data received from client")
 
 	// Disconnect from server
 	time.Sleep(waitTime)
