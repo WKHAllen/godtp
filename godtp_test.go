@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+const waitTime = 100 * time.Millisecond
+
 func assert(value bool, t *testing.T, err string) {
 	if !value {
 		t.Errorf(err)
@@ -39,9 +41,7 @@ func onDisconnectedClient() {
 	fmt.Printf("Disconnected from server\n")
 }
 
-func TestGoDTP(t *testing.T) {
-	waitTime := 100 * time.Millisecond
-
+func TestGoDTPMain(t *testing.T) {
 	// Create server
 	server := NewServer(onRecvServer, onConnectServer, onDisconnectServer, false, false)
 	assert(!server.Serving(), t, "Server should not be serving")
@@ -98,4 +98,61 @@ func TestGoDTP(t *testing.T) {
 	err = server.Stop()
 	assertErr(err == nil, t, err)
 	assert(!server.Serving(), t, "Server should not be serving")
+}
+
+func TestGoDTPChan(t *testing.T) {
+	// Create and start server
+	server := NewServerChan()
+	connectChan, err := server.StartDefault()
+	assertErr(err == nil, t, err)
+
+	// Get server address
+	host, port, err := server.GetAddr()
+	assertErr(err == nil, t, err)
+
+	// Create client and connect to server
+	client := NewClientChan()
+	clientSendChan, clientRecvChan, err := client.Connect(host, port)
+	assertErr(err == nil, t, err)
+
+	// Get server send and receive channels
+	time.Sleep(waitTime)
+	serverSendChan := <-connectChan
+	serverRecvChan := <-connectChan
+
+	// Send data from server to client
+	time.Sleep(waitTime)
+	serverSendChan <- []byte("Hello, client!")
+	time.Sleep(waitTime)
+	clientRecv := <-clientRecvChan
+	fmt.Printf("Data received from server: %s\n", clientRecv)
+	assert(string(clientRecv) == "Hello, client!", t, "Unexpected data received from server")
+
+	// Send data from client to server
+	time.Sleep(waitTime)
+	clientSendChan <- []byte("Hello, server!")
+	time.Sleep(waitTime)
+	serverRecv := <-serverRecvChan
+	fmt.Printf("Data received from client: %s\n", serverRecv)
+	assert(string(serverRecv) == "Hello, server!", t, "Unexpected data received from client")
+
+	// Test channel close
+	go func() {
+		for range clientRecvChan {}
+		fmt.Println("Disconnected from server")
+	}()
+	go func() {
+		for range serverRecvChan {}
+		fmt.Println("Client disconnected")
+	}()
+
+	// Disconnect from server
+	time.Sleep(waitTime)
+	err = client.Disconnect()
+	assertErr(err == nil, t, err)
+
+	// Stop server
+	time.Sleep(waitTime)
+	err = server.Stop()
+	assertErr(err == nil, t, err)
 }

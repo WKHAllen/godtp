@@ -10,6 +10,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 const lenSize = 5
@@ -112,4 +113,44 @@ func decrypt(key []byte, ciphertext []byte) ([]byte, error) {
     cfb := cipher.NewCFBDecrypter(block, iv)
     cfb.XORKeyStream(plaintext, plaintext)
     return plaintext, nil
+}
+
+// Close a byte slice channel
+func closeBytesChan(ch chan []byte) bool {
+	open := make(chan bool)
+	var wg sync.WaitGroup
+
+	go func() {
+		wg.Add(1)
+
+		defer func() {
+			open <- recover() == nil
+			wg.Done()
+		}()
+
+		close(ch)
+	}()
+
+	wg.Wait()
+	return <-open
+}
+
+// Close a byte slice channel channel
+func closeBytesChanChan(ch chan chan []byte) bool {
+	open := make(chan bool)
+	var wg sync.WaitGroup
+
+	go func() {
+		wg.Add(1)
+
+		defer func() {
+			open <- recover() == nil
+			wg.Done()
+		}()
+
+		close(ch)
+	}()
+
+	wg.Wait()
+	return <-open
 }

@@ -39,6 +39,7 @@ func (client *ClientChan) ConnectDefaultHost(port uint16) (chan []byte, chan []b
 
 // Disconnect from the server
 func (client *ClientChan) Disconnect() error {
+	client.onDisconnectedCallback()
 	return client.client.Disconnect()
 }
 
@@ -75,10 +76,6 @@ func (client *ClientChan) onRecvCallback(msg []byte) {
 
 // Handle server disconnecting
 func (client *ClientChan) onDisconnectedCallback() {
-	if _, ok := <-client.sendChan; ok {
-		close(client.sendChan)
-	}
-	if _, ok := <-client.recvChan; ok {
-		close(client.recvChan)
-	}
+	closeBytesChan(client.sendChan)
+	closeBytesChan(client.recvChan)
 }

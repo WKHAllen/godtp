@@ -49,6 +49,10 @@ func (server *ServerChan) StartDefault() (chan chan []byte, error) {
 
 // Stop the server
 func (server *ServerChan) Stop() error {
+	for clientID := range server.sendChans {
+		server.onDisconnectCallback(clientID)
+	}
+	closeBytesChanChan(server.connectChan)
 	return server.server.Stop()
 }
 
@@ -98,12 +102,8 @@ func (server *ServerChan) onConnectCallback(clientID uint) {
 
 // Handle client disconnecting
 func (server *ServerChan) onDisconnectCallback(clientID uint) {
-	if _, ok := <-server.sendChans[clientID]; ok {
-		close(server.sendChans[clientID])
-	}
-	if _, ok := <-server.recvChans[clientID]; ok {
-		close(server.recvChans[clientID])
-	}
+	closeBytesChan(server.sendChans[clientID])
+	closeBytesChan(server.recvChans[clientID])
 	delete(server.sendChans, clientID)
 	delete(server.recvChans, clientID)
 }
