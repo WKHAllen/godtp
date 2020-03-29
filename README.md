@@ -269,7 +269,7 @@ NewClientChan creates a new socket client object, using channels rather than cal
 ### func (*ClientChan) Connect
 
 ```go
-func (client *ClientChan) Connect(host string, port uint16) (chan []byte, chan []byte, error)
+func (client *ClientChan) Connect(host string, port uint16) (chan<- []byte, <-chan []byte, error)
 ```
 
 Connect to a server.
@@ -277,7 +277,7 @@ Connect to a server.
 ### func (*ClientChan) ConnectDefaultHost
 
 ```go
-func (client *ClientChan) ConnectDefaultHost(port uint16) (chan []byte, chan []byte, error)
+func (client *ClientChan) ConnectDefaultHost(port uint16) (chan<- []byte, <-chan []byte, error)
 ```
 
 ConnectDefaultHost connects to a server at the default host address.
@@ -363,7 +363,7 @@ Serving returns a boolean value representing whether or not the server is servin
 ### func (*ServerChan) Start
 
 ```go
-func (server *ServerChan) Start(host string, port uint16) (chan chan []byte, error)
+func (server *ServerChan) Start(host string, port uint16) (<-chan chan<- []byte, <-chan (<-chan []byte), error)
 ```
 
 Start the server.
@@ -371,7 +371,7 @@ Start the server.
 ### func (*ServerChan) StartDefault
 
 ```go
-func (server *ServerChan) StartDefault() (chan chan []byte, error)
+func (server *ServerChan) StartDefault() (<-chan chan<- []byte, <-chan (<-chan []byte), error)
 ```
 
 StartDefault starts the server on 0.0.0.0:0.
@@ -379,7 +379,7 @@ StartDefault starts the server on 0.0.0.0:0.
 ### func (*ServerChan) StartDefaultHost
 
 ```go
-func (server *ServerChan) StartDefaultHost(port uint16) (chan chan []byte, error)
+func (server *ServerChan) StartDefaultHost(port uint16) (<-chan chan<- []byte, <-chan (<-chan []byte), error)
 ```
 
 StartDefaultHost starts the server at the default host address.
@@ -387,7 +387,7 @@ StartDefaultHost starts the server at the default host address.
 ### func (*ServerChan) StartDefaultPort
 
 ```go
-func (server *ServerChan) StartDefaultPort(host string) (chan chan []byte, error)
+func (server *ServerChan) StartDefaultPort(host string) (<-chan chan<- []byte, <-chan (<-chan []byte), error)
 ```
 
 StartDefaultPort starts the server on the default port.
