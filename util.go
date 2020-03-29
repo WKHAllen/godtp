@@ -146,8 +146,28 @@ func closeBytesChan(ch chan []byte) bool {
 	return <-open
 }
 
-// Close a byte slice channel channel
-func closeBytesChanChan(ch chan chan []byte) bool {
+// Close a server send channel
+func closeSendChan(ch chan chan<- []byte) bool {
+	open := make(chan bool)
+	var wg sync.WaitGroup
+
+	go func() {
+		wg.Add(1)
+
+		defer func() {
+			open <- recover() == nil
+			wg.Done()
+		}()
+
+		close(ch)
+	}()
+
+	wg.Wait()
+	return <-open
+}
+
+// Close a server receive channel
+func closeRecvChan(ch chan (<-chan []byte)) bool {
 	open := make(chan bool)
 	var wg sync.WaitGroup
 

@@ -5,7 +5,8 @@ type ServerChan struct {
 	server *Server
 	sendChans map[uint]chan []byte
 	recvChans map[uint]chan []byte
-	connectChan chan chan []byte
+	connectSendChan chan chan<- []byte
+	connectRecvChan chan (<-chan []byte)
 }
 
 // NewServerChan creates a new socket server object, using channels rather
@@ -15,7 +16,8 @@ func NewServerChan() *ServerChan {
 		server: NewServer(nil, nil, nil, false, false),
 		sendChans: make(map[uint]chan []byte),
 		recvChans: make(map[uint]chan []byte),
-		connectChan: make(chan chan []byte, 2),
+		connectSendChan: make(chan chan<- []byte),
+		connectRecvChan: make(chan (<-chan []byte)),
 	}
 	server.server.onRecv = server.onRecvCallback
 	server.server.onConnect = server.onConnectCallback
@@ -24,26 +26,26 @@ func NewServerChan() *ServerChan {
 }
 
 // Start the server
-func (server *ServerChan) Start(host string, port uint16) (<-chan chan []byte, error) {
+func (server *ServerChan) Start(host string, port uint16) (<-chan chan<- []byte, <-chan (<-chan []byte), error) {
 	err := server.server.Start(host, port)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return server.connectChan, nil
+	return server.connectSendChan, server.connectRecvChan, nil
 }
 
 // StartDefaultHost starts the server at the default host address
-func (server *ServerChan) StartDefaultHost(port uint16) (<-chan chan []byte, error) {
+func (server *ServerChan) StartDefaultHost(port uint16) (<-chan chan<- []byte, <-chan (<-chan []byte), error) {
 	return server.Start("0.0.0.0", port)
 }
 
 // StartDefaultPort starts the server on the default port
-func (server *ServerChan) StartDefaultPort(host string) (<-chan chan []byte, error) {
+func (server *ServerChan) StartDefaultPort(host string) (<-chan chan<- []byte, <-chan (<-chan []byte), error) {
 	return server.Start(host, 0)
 }
 
 // StartDefault starts the server on 0.0.0.0:0
-func (server *ServerChan) StartDefault() (<-chan chan []byte, error) {
+func (server *ServerChan) StartDefault() (<-chan chan<- []byte, <-chan (<-chan []byte), error) {
 	return server.Start("0.0.0.0", 0)
 }
 
@@ -52,7 +54,8 @@ func (server *ServerChan) Stop() error {
 	for clientID := range server.sendChans {
 		server.onDisconnectCallback(clientID)
 	}
-	closeBytesChanChan(server.connectChan)
+	closeSendChan(server.connectSendChan)
+	closeRecvChan(server.connectRecvChan)
 	return server.server.Stop()
 }
 
@@ -96,8 +99,8 @@ func (server *ServerChan) onConnectCallback(clientID uint) {
 
 	go server.serveClient(clientID)
 
-	server.connectChan <- sendChan
-	server.connectChan <- recvChan
+	server.connectSendChan <- sendChan
+	server.connectRecvChan <- recvChan
 }
 
 // Handle client disconnecting

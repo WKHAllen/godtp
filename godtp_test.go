@@ -103,7 +103,7 @@ func TestMain(t *testing.T) {
 func TestChan(t *testing.T) {
 	// Create and start server
 	server := NewServerChan()
-	connectChan, err := server.StartDefault()
+	connectSendChan, connectRecvChan, err := server.StartDefault()
 	assertErr(err == nil, t, err)
 
 	// Get server address
@@ -117,8 +117,8 @@ func TestChan(t *testing.T) {
 
 	// Get server send and receive channels
 	time.Sleep(waitTime)
-	serverSendChan := <-connectChan
-	serverRecvChan := <-connectChan
+	serverSendChan := <-connectSendChan
+	serverRecvChan := <-connectRecvChan
 
 	// Send data from server to client
 	time.Sleep(waitTime)
@@ -160,7 +160,7 @@ func TestChan(t *testing.T) {
 func TestEncode(t *testing.T) {
 	// Create and start server
 	server := NewServerChan()
-	connectChan, err := server.StartDefault()
+	connectSendChan, connectRecvChan, err := server.StartDefault()
 	assertErr(err == nil, t, err)
 
 	// Get server address
@@ -174,8 +174,8 @@ func TestEncode(t *testing.T) {
 
 	// Get server send and receive channels
 	time.Sleep(waitTime)
-	serverSendChan := <-connectChan
-	serverRecvChan := <-connectChan
+	serverSendChan := <-connectSendChan
+	serverRecvChan := <-connectRecvChan
 
 	// Send data from server to client
 	time.Sleep(waitTime)
