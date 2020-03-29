@@ -20,6 +20,26 @@ import "github.com/WKHAllen/godtp"
 
 See [the test file](godtp_test.go) for a basic example.
 
+## Encoding and Decoding
+
+GoDTP provides functions for encoding and decoding objects. This is necessary, as only bytes can be sent over a network.
+
+### func Decode
+
+```go
+func Decode(bytestring []byte, object interface{}) error
+```
+
+Decode an object that came through a socket.
+
+### func Encode
+
+```go
+func Encode(object interface{}) ([]byte, error)
+```
+
+Encode an object so it can be sent through a socket.
+
 ## Client (using callbacks)
 
 Below are the defined client types and functions:
