@@ -24,7 +24,7 @@ func NewServerChan() *ServerChan {
 }
 
 // Start the server
-func (server *ServerChan) Start(host string, port uint16) (chan chan []byte, error) {
+func (server *ServerChan) Start(host string, port uint16) (<-chan chan []byte, error) {
 	err := server.server.Start(host, port)
 	if err != nil {
 		return nil, err
@@ -33,17 +33,17 @@ func (server *ServerChan) Start(host string, port uint16) (chan chan []byte, err
 }
 
 // StartDefaultHost starts the server at the default host address
-func (server *ServerChan) StartDefaultHost(port uint16) (chan chan []byte, error) {
+func (server *ServerChan) StartDefaultHost(port uint16) (<-chan chan []byte, error) {
 	return server.Start("0.0.0.0", port)
 }
 
 // StartDefaultPort starts the server on the default port
-func (server *ServerChan) StartDefaultPort(host string) (chan chan []byte, error) {
+func (server *ServerChan) StartDefaultPort(host string) (<-chan chan []byte, error) {
 	return server.Start(host, 0)
 }
 
 // StartDefault starts the server on 0.0.0.0:0
-func (server *ServerChan) StartDefault() (chan chan []byte, error) {
+func (server *ServerChan) StartDefault() (<-chan chan []byte, error) {
 	return server.Start("0.0.0.0", 0)
 }
 

@@ -21,7 +21,7 @@ func NewClientChan() *ClientChan {
 }
 
 // Connect to a server
-func (client *ClientChan) Connect(host string, port uint16) (chan []byte, chan []byte, error) {
+func (client *ClientChan) Connect(host string, port uint16) (chan<- []byte, <-chan []byte, error) {
 	err := client.client.Connect(host, port)
 	if err != nil {
 		return nil, nil, err
@@ -33,7 +33,7 @@ func (client *ClientChan) Connect(host string, port uint16) (chan []byte, chan [
 }
 
 // ConnectDefaultHost connects to a server at the default host address
-func (client *ClientChan) ConnectDefaultHost(port uint16) (chan []byte, chan []byte, error) {
+func (client *ClientChan) ConnectDefaultHost(port uint16) (chan<- []byte, <-chan []byte, error) {
 	return client.Connect("0.0.0.0", port)
 }
 
