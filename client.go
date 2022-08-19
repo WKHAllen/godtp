@@ -8,49 +8,42 @@ import (
 	"sync"
 )
 
-type onRecvFuncClient func([]byte)
-type onDisconnectedFuncClient func()
+// ClientEventType defines the type of client event
+type ClientEventType uint
+
+// Client event type values
+const (
+	ClientReceive ClientEventType = iota
+	ClientDisconnected
+)
+
+// ClientEvent defines an event emitted from the client
+type ClientEvent[T any] struct {
+	EventType ClientEventType
+	Data      T
+}
 
 // Client defines the socket client type
-type Client struct {
-	onRecv onRecvFuncClient
-	onDisconnected onDisconnectedFuncClient
-	blocking bool
-	eventBlocking bool
-	connected bool
-	sock net.Conn
-	key []byte
-	wg sync.WaitGroup
+type Client[S any, R any] struct {
+	connected    bool
+	sock         net.Conn
+	key          []byte
+	eventChannel chan ClientEvent[R]
+	wg           sync.WaitGroup
 }
 
-// NewClient creates a new socket client object
-func NewClient(onRecv onRecvFuncClient,
-			   onDisconnected onDisconnectedFuncClient,
-			   blocking bool, eventBlocking bool) *Client {
-	return &Client{
-		onRecv: onRecv,
-		onDisconnected: onDisconnected,
-		blocking: blocking,
-		eventBlocking: eventBlocking,
-		connected: false,
-	}
-}
+// NewClient creates a new socket client
+func NewClient[S any, R any]() (*Client[S, R], <-chan ClientEvent[R]) {
+	eventChannel := make(chan ClientEvent[R], channelBufferSize)
 
-// NewClientDefault creates a new socket client object with blocking and
-// eventBlocking set to false
-func NewClientDefault(onRecv onRecvFuncClient,
-					  onDisconnected onDisconnectedFuncClient) *Client {
-	return &Client{
-		onRecv: onRecv,
-		onDisconnected: onDisconnected,
-		blocking: false,
-		eventBlocking: false,
-		connected: false,
-	}
+	return &Client[S, R]{
+		connected:    false,
+		eventChannel: eventChannel,
+	}, eventChannel
 }
 
 // Connect to a server
-func (client *Client) Connect(host string, port uint16) error {
+func (client *Client[S, R]) Connect(host string, port uint16) error {
 	if client.connected {
 		return fmt.Errorf("client is already connected to a server")
 	}
@@ -68,23 +61,14 @@ func (client *Client) Connect(host string, port uint16) error {
 		return err
 	}
 
-	if client.blocking {
-		client.handle()
-	} else {
-		client.wg.Add(1)
-		go client.handle()
-	}
+	client.wg.Add(1)
+	go client.handle()
 
 	return nil
 }
 
-// ConnectDefaultHost connects to a server at the default host address
-func (client *Client) ConnectDefaultHost(port uint16) error {
-	return client.Connect("0.0.0.0", port)
-}
-
 // Disconnect from the server
-func (client *Client) Disconnect() error {
+func (client *Client[S, R]) Disconnect() error {
 	if !client.connected {
 		return fmt.Errorf("client is not connected to a server")
 	}
@@ -96,25 +80,29 @@ func (client *Client) Disconnect() error {
 		return err
 	}
 
-	if !client.blocking {
-		client.wg.Wait()
-	}
+	client.wg.Wait()
+	close(client.eventChannel)
 
 	return nil
 }
 
 // Send data to the server
-func (client *Client) Send(data []byte) error {
+func (client *Client[S, R]) Send(data S) error {
 	if !client.connected {
 		return fmt.Errorf("client is not connected to a server")
 	}
 
-	encryptedData, err := encrypt(client.key, data)
+	dataBytes, err := encodeObject(data)
 	if err != nil {
 		return err
 	}
 
-	size := decToASCII(uint64(len(encryptedData)))
+	encryptedData, err := aesEncrypt(client.key, dataBytes)
+	if err != nil {
+		return err
+	}
+
+	size := encodeMessageSize(uint64(len(encryptedData)))
 	buffer := append(size, encryptedData...)
 
 	_, err = client.sock.Write(buffer)
@@ -125,14 +113,13 @@ func (client *Client) Send(data []byte) error {
 	return nil
 }
 
-// Connected returns a boolean value representing whether or not the client is
-// connected to a server
-func (client *Client) Connected() bool {
+// Connected returns a boolean value representing whether the client is connected to a server
+func (client *Client[S, R]) Connected() bool {
 	return client.connected
 }
 
-// GetAddr returns the address string
-func (client *Client) GetAddr() (string, uint16, error) {
+// GetAddr returns the client's address
+func (client *Client[S, R]) GetAddr() (string, uint16, error) {
 	if !client.connected {
 		return "", 0, fmt.Errorf("client is not connected to a server")
 	}
@@ -140,8 +127,8 @@ func (client *Client) GetAddr() (string, uint16, error) {
 	return parseAddr(client.sock.LocalAddr().String())
 }
 
-// GetServerAddr returns the address of the server
-func (client *Client) GetServerAddr() (string, uint16, error) {
+// GetServerAddr returns the server's address
+func (client *Client[S, R]) GetServerAddr() (string, uint16, error) {
 	if !client.connected {
 		return "", 0, fmt.Errorf("client is not connected to a server")
 	}
@@ -150,75 +137,81 @@ func (client *Client) GetServerAddr() (string, uint16, error) {
 }
 
 // Handle client events
-func (client *Client) handle() {
+func (client *Client[S, R]) handle() {
 	defer client.wg.Done()
 
-	sizebuffer := make([]byte, lenSize)
-	for ; client.connected; {
-		_, err := client.sock.Read(sizebuffer)
+	sizeBuffer := make([]byte, lenSize)
+
+	for client.connected {
+		_, err := client.sock.Read(sizeBuffer)
 		if err != nil {
 			break
 		}
 
-		msgSize := asciiToDec(sizebuffer)
+		msgSize := decodeMessageSize(sizeBuffer)
 		buffer := make([]byte, msgSize)
 		_, err = client.sock.Read(buffer)
 		if err != nil {
 			break
 		}
 
-		data, err := decrypt(client.key, buffer)
+		dataBytes, err := aesDecrypt(client.key, buffer)
 		if err != nil {
 			break
 		}
 
-		if client.onRecv != nil {
-			if client.eventBlocking {
-				client.onRecv(data)
-			} else {
-				go client.onRecv(data)
-			}
+		data, err := decodeObject[R](dataBytes)
+		if err != nil {
+			break
+		}
+
+		client.eventChannel <- ClientEvent[R]{
+			EventType: ClientReceive,
+			Data:      data,
 		}
 	}
 
 	if client.connected {
 		client.connected = false
-		client.sock.Close()
-		if client.onDisconnected != nil {
-			if client.eventBlocking {
-				client.onDisconnected()
-			} else {
-				go client.onDisconnected()
-			}
+		err := client.sock.Close()
+		if err != nil {
+			// Do nothing for these errors
+		}
+
+		client.eventChannel <- ClientEvent[R]{
+			EventType: ClientDisconnected,
 		}
 	}
 }
 
-// Exchange keys with the server
-func (client *Client) exchangeKeys() error {
-	priv, err := newKeys()
+// Exchange crypto keys with the server
+func (client *Client[S, R]) exchangeKeys() error {
+	privateKey, err := newRSAKeys()
 	if err != nil {
 		return err
 	}
 
-	pub := priv.PublicKey
+	pub := privateKey.PublicKey
 	enc := gob.NewEncoder(client.sock)
-	enc.Encode(&pub)
-
-	sizebuffer := make([]byte, lenSize)
-	_, err = client.sock.Read(sizebuffer)
+	err = enc.Encode(&pub)
 	if err != nil {
 		return err
 	}
 
-	msgSize := asciiToDec(sizebuffer)
+	sizeBuffer := make([]byte, lenSize)
+	_, err = client.sock.Read(sizeBuffer)
+	if err != nil {
+		return err
+	}
+
+	msgSize := decodeMessageSize(sizeBuffer)
 	buffer := make([]byte, msgSize)
 	_, err = client.sock.Read(buffer)
 	if err != nil {
 		return err
 	}
 
-	key, err := asymmetricDecrypt(priv, buffer)
+	key, err := rsaDecrypt(privateKey, buffer)
 	if err != nil {
 		return err
 	}

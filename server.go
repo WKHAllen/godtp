@@ -9,53 +9,49 @@ import (
 	"sync"
 )
 
-type onRecvFuncServer func(uint, []byte)
-type onConnectFuncServer func(uint)
-type onDisconnectFuncServer func(uint)
+// ServerEventType defines the type of server event
+type ServerEventType uint
+
+// Server event type values
+const (
+	ServerReceive ServerEventType = iota
+	ServerConnect
+	ServerDisconnect
+)
+
+// ServerEvent defines an event emitted from the server
+type ServerEvent[T any] struct {
+	EventType ServerEventType
+	ClientID  uint
+	Data      T
+}
 
 // Server defines the socket server type
-type Server struct {
-	onRecv onRecvFuncServer
-	onConnect onConnectFuncServer
-	onDisconnect onDisconnectFuncServer
-	blocking bool
-	eventBlocking bool
-	serving bool
-	sock net.Listener
-	clients map[uint]net.Conn
-	keys map[uint][]byte
-	wg sync.WaitGroup
+type Server[S any, R any] struct {
+	serving      bool
+	sock         net.Listener
+	clients      map[uint]net.Conn
+	keys         map[uint][]byte
+	eventChannel chan ServerEvent[R]
+	wg           sync.WaitGroup
 	nextClientID uint
 }
 
-// NewServer creates a new socket server object
-func NewServer(onRecv onRecvFuncServer,
-			   onConnect onConnectFuncServer,
-			   onDisconnect onDisconnectFuncServer,
-			   blocking bool, eventBlocking bool) *Server {
-	return &Server{
-		onRecv: onRecv,
-		onConnect: onConnect,
-		onDisconnect: onDisconnect,
-		blocking: blocking,
-		eventBlocking: eventBlocking,
-		serving: false,
-		clients: make(map[uint]net.Conn),
-		keys: make(map[uint][]byte),
-		nextClientID: 0,
-	}
-}
+// NewServer creates a new socket server
+func NewServer[S any, R any]() (*Server[S, R], <-chan ServerEvent[R]) {
+	eventChannel := make(chan ServerEvent[R], channelBufferSize)
 
-// NewServerDefault creates a new socket server object with blocking and
-// eventBlocking set to false
-func NewServerDefault(onRecv onRecvFuncServer,
-					  onConnect onConnectFuncServer,
-					  onDisconnect onDisconnectFuncServer) *Server {
-	return NewServer(onRecv, onConnect, onDisconnect, false, false)
+	return &Server[S, R]{
+		serving:      false,
+		clients:      make(map[uint]net.Conn),
+		keys:         make(map[uint][]byte),
+		eventChannel: eventChannel,
+		nextClientID: 0,
+	}, eventChannel
 }
 
 // Start the server
-func (server *Server) Start(host string, port uint16) error {
+func (server *Server[S, R]) Start(host string, port uint16) error {
 	if server.serving {
 		return fmt.Errorf("server is already serving")
 	}
@@ -68,33 +64,14 @@ func (server *Server) Start(host string, port uint16) error {
 	server.sock = ln
 
 	server.serving = true
-	if server.blocking {
-		server.serve()
-	} else {
-		server.wg.Add(1)
-		go server.serve()
-	}
+	server.wg.Add(1)
+	go server.serve()
 
 	return nil
 }
 
-// StartDefaultHost starts the server at the default host address
-func (server *Server) StartDefaultHost(port uint16) error {
-	return server.Start("0.0.0.0", port)
-}
-
-// StartDefaultPort starts the server on the default port
-func (server *Server) StartDefaultPort(host string) error {
-	return server.Start(host, 0)
-}
-
-// StartDefault starts the server on 0.0.0.0:0
-func (server *Server) StartDefault() error {
-	return server.Start("0.0.0.0", 0)
-}
-
 // Stop the server
-func (server *Server) Stop() error {
+func (server *Server[S, R]) Stop() error {
 	if !server.serving {
 		return fmt.Errorf("server is not serving")
 	}
@@ -112,66 +89,58 @@ func (server *Server) Stop() error {
 		return err
 	}
 
-	if !server.blocking {
-		server.wg.Wait()
-	}
+	server.wg.Wait()
+	close(server.eventChannel)
 
 	return nil
 }
 
 // Send data to clients
-func (server *Server) Send(data []byte, clientIDs ...uint) error {
+func (server *Server[S, R]) Send(data S, clientIDs ...uint) error {
 	if !server.serving {
 		return fmt.Errorf("server is not serving")
 	}
 
+	dataBytes, err := encodeObject(data)
+	if err != nil {
+		return err
+	}
+
 	if len(clientIDs) == 0 {
-		for clientID, client := range server.clients {
-			encryptedData, err := encrypt(server.keys[clientID], data)
+		for clientID := range server.clients {
+			clientIDs = append(clientIDs, clientID)
+		}
+	}
+
+	for _, clientID := range clientIDs {
+		if client, ok := server.clients[clientID]; ok {
+			encryptedData, err := aesEncrypt(server.keys[clientID], dataBytes)
 			if err != nil {
 				return err
 			}
 
-			size := decToASCII(uint64(len(encryptedData)))
+			size := encodeMessageSize(uint64(len(encryptedData)))
 			buffer := append(size, encryptedData...)
 
 			_, err = client.Write(buffer)
 			if err != nil {
 				return err
 			}
-		}
-	} else {
-		for _, clientID := range clientIDs {
-			if client, ok := server.clients[clientID]; ok {
-				encryptedData, err := encrypt(server.keys[clientID], data)
-				if err != nil {
-					return err
-				}
-
-				size := decToASCII(uint64(len(encryptedData)))
-				buffer := append(size, encryptedData...)
-
-				_, err = client.Write(buffer)
-				if err != nil {
-					return err
-				}
-			} else {
-				return fmt.Errorf("client does not exist")
-			}
+		} else {
+			return fmt.Errorf("client does not exist")
 		}
 	}
 
 	return nil
 }
 
-// Serving returns a boolean value representing whether or not the server is
-// serving
-func (server *Server) Serving() bool {
+// Serving returns a boolean value representing whether the server is serving
+func (server *Server[S, R]) Serving() bool {
 	return server.serving
 }
 
-// GetAddr returns the address string
-func (server *Server) GetAddr() (string, uint16, error) {
+// GetAddr returns the server's address
+func (server *Server[S, R]) GetAddr() (string, uint16, error) {
 	if !server.serving {
 		return "", 0, fmt.Errorf("server is not serving")
 	}
@@ -179,8 +148,8 @@ func (server *Server) GetAddr() (string, uint16, error) {
 	return parseAddr(server.sock.Addr().String())
 }
 
-// GetClientAddr returns the address of a client
-func (server *Server) GetClientAddr(clientID uint) (string, uint16, error) {
+// GetClientAddr returns a client's address
+func (server *Server[S, R]) GetClientAddr(clientID uint) (string, uint16, error) {
 	if !server.serving {
 		return "", 0, fmt.Errorf("server is not serving")
 	}
@@ -192,25 +161,32 @@ func (server *Server) GetClientAddr(clientID uint) (string, uint16, error) {
 }
 
 // RemoveClient disconnects a client from the server
-func (server *Server) RemoveClient(clientID uint) error {
+func (server *Server[S, R]) RemoveClient(clientID uint) error {
 	if !server.serving {
 		return fmt.Errorf("server is not serving")
 	}
 
 	if client, ok := server.clients[clientID]; ok {
-		client.Close()
+		err := client.Close()
+		if err != nil {
+			return err
+		}
+
 		delete(server.clients, clientID)
 		delete(server.keys, clientID)
+
 		return nil
 	}
 	return fmt.Errorf("client does not exist")
 }
 
 // Handle client connections
-func (server *Server) serve() {
-	defer server.wg.Done()
+func (server *Server[S, R]) serve() {
+	defer func() {
+		server.wg.Done()
+	}()
 
-	for ; server.serving; {
+	for server.serving {
 		conn, err := server.sock.Accept()
 		if err != nil {
 			if !server.serving {
@@ -237,78 +213,80 @@ func (server *Server) serve() {
 }
 
 // Serve clients
-func (server *Server) serveClient(clientID uint) {
-	defer server.wg.Done()
+func (server *Server[S, R]) serveClient(clientID uint) {
+	defer func() {
+		server.wg.Done()
+	}()
 
-	if server.eventBlocking {
-		if server.onConnect != nil {
-			server.onConnect(clientID)
-		}
-		if server.onDisconnect != nil {
-			defer server.onDisconnect(clientID)
-		}
-	} else {
-		if server.onConnect != nil {
-			go server.onConnect(clientID)
-		}
-		if server.onDisconnect != nil {
-			defer func() {
-				go server.onDisconnect(clientID)
-			}()
-		}
+	server.eventChannel <- ServerEvent[R]{
+		EventType: ServerConnect,
+		ClientID:  clientID,
 	}
+	defer func() {
+		server.eventChannel <- ServerEvent[R]{
+			EventType: ServerDisconnect,
+			ClientID:  clientID,
+		}
+	}()
 
 	client := server.clients[clientID]
 
-	sizebuffer := make([]byte, lenSize)
-	for ; server.serving; {
-		_, err := client.Read(sizebuffer)
+	sizeBuffer := make([]byte, lenSize)
+
+	for server.serving {
+		_, err := client.Read(sizeBuffer)
 		if err != nil {
 			break
 		}
 
-		msgSize := asciiToDec(sizebuffer)
+		msgSize := decodeMessageSize(sizeBuffer)
 		buffer := make([]byte, msgSize)
 		_, err = client.Read(buffer)
 		if err != nil {
 			break
 		}
 
-		data, err := decrypt(server.keys[clientID], buffer)
+		dataBytes, err := aesDecrypt(server.keys[clientID], buffer)
 		if err != nil {
 			break
 		}
 
-		if server.onRecv != nil {
-			if server.eventBlocking {
-				server.onRecv(clientID, data)
-			} else {
-				go server.onRecv(clientID, data)
-			}
+		data, err := decodeObject[R](dataBytes)
+		if err != nil {
+			break
+		}
+
+		server.eventChannel <- ServerEvent[R]{
+			EventType: ServerReceive,
+			ClientID:  clientID,
+			Data:      data,
 		}
 	}
 }
 
 // Get a new client ID
-func (server *Server) newClientID() uint {
+func (server *Server[S, R]) newClientID() uint {
 	server.nextClientID++
 	return server.nextClientID - 1
 }
 
-// Exchange keys with a client
-func (server *Server) exchangeKeys(clientID uint, client net.Conn) error {
+// Exchange crypto keys with a client
+func (server *Server[S, R]) exchangeKeys(clientID uint, client net.Conn) error {
 	pub := rsa.PublicKey{}
 	dec := gob.NewDecoder(client)
-	dec.Decode(&pub)
-
-	key, err := newKey()
+	err := dec.Decode(&pub)
 	if err != nil {
 		return err
 	}
 
-	encryptedKey, err := asymmetricEncrypt(pub, key)
+	key, err := newAESKey()
+	if err != nil {
+		return err
+	}
 
-	size := decToASCII(uint64(len(encryptedKey)))
+	encryptedKey, err := rsaEncrypt(pub, key)
+
+	size := encodeMessageSize(uint64(len(encryptedKey)))
 	buffer := append(size, encryptedKey...)
 
 	_, err = client.Write(buffer)
