@@ -11,7 +11,7 @@ See the full project [here](https://wkhallen.com/dtp/).
 
 Install the package:
 
-```console
+```sh
 $ go get -u github.com/wkhallen/godtp
 ```
 
