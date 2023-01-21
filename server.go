@@ -1,7 +1,6 @@
 package godtp
 
 import (
-	"crypto/rsa"
 	"encoding/gob"
 	"fmt"
 	"net"
@@ -272,24 +271,32 @@ func (server *Server[S, R]) newClientID() uint {
 
 // Exchange crypto keys with a client
 func (server *Server[S, R]) exchangeKeys(clientID uint, client net.Conn) error {
-	pub := rsa.PublicKey{}
-	dec := gob.NewDecoder(client)
-	err := dec.Decode(&pub)
+	privateKey, err := newRSAKeys()
 	if err != nil {
 		return err
 	}
 
-	key, err := newAESKey()
+	pub := privateKey.PublicKey
+	enc := gob.NewEncoder(client)
+	err = enc.Encode(&pub)
 	if err != nil {
 		return err
 	}
 
-	encryptedKey, err := rsaEncrypt(pub, key)
+	sizeBuffer := make([]byte, lenSize)
+	_, err = client.Read(sizeBuffer)
+	if err != nil {
+		return err
+	}
 
-	size := encodeMessageSize(uint64(len(encryptedKey)))
-	buffer := append(size, encryptedKey...)
+	msgSize := decodeMessageSize(sizeBuffer)
+	buffer := make([]byte, msgSize)
+	_, err = client.Read(buffer)
+	if err != nil {
+		return err
+	}
 
-	_, err = client.Write(buffer)
+	key, err := rsaDecrypt(privateKey, buffer)
 	if err != nil {
 		return err
 	}

@@ -32,6 +32,14 @@ func assertEq[T any](left T, right T, t *testing.T) {
 	}
 }
 
+// Assert an inequality
+func assertNe[T any](left T, right T, t *testing.T) {
+	if reflect.DeepEqual(left, right) {
+		t.Errorf("Assertion error: %#v == %#v", left, right)
+		panic("Assertion error")
+	}
+}
+
 // Assert no error occurred
 func assertNoErr(err error, t *testing.T) {
 	if err != nil {
@@ -42,9 +50,17 @@ func assertNoErr(err error, t *testing.T) {
 
 // A representation of a person
 type person struct {
-	Name       string
-	Age        int
-	WritesInGo bool
+	Name        string
+	Age         int
+	WritesInGo  bool
+	PrefersRust bool
+}
+
+// Custom type
+type custom struct {
+	A int
+	B string
+	C []string
 }
 
 // Test encoding message sizes
@@ -109,15 +125,52 @@ func TestObjectEncodeDecode(t *testing.T) {
 
 	// Encode/decode a struct
 	structValue := person{
-		Name:       "Will",
-		Age:        23,
-		WritesInGo: true,
+		Name:        "Will",
+		Age:         24,
+		WritesInGo:  true,
+		PrefersRust: true,
 	}
 	encodedStruct, err := encodeObject(structValue)
 	assertNoErr(err, t)
 	decodedStruct, err := decodeObject[person](encodedStruct)
 	assertNoErr(err, t)
 	assertEq(decodedStruct, structValue, t)
+}
+
+// Test crypto functions
+func TestCrypto(t *testing.T) {
+	// Test RSA encryption
+	rsaMessage := "Hello, RSA!"
+	privateKey, err := newRSAKeys()
+	assertNoErr(err, t)
+	publicKey := privateKey.PublicKey
+	rsaEncrypted, err := rsaEncrypt(publicKey, []byte(rsaMessage))
+	assertNoErr(err, t)
+	rsaDecrypted, err := rsaDecrypt(privateKey, rsaEncrypted)
+	assertNoErr(err, t)
+	rsaDecryptedMessage := string(rsaDecrypted[:])
+	assertEq(rsaDecryptedMessage, rsaMessage, t)
+	assertNe(rsaEncrypted, []byte(rsaMessage), t)
+
+	// Test AES encryption
+	aesMessage := "Hello, AES!"
+	key, err := newAESKey()
+	assertNoErr(err, t)
+	aesEncrypted, err := aesEncrypt(key, []byte(aesMessage))
+	assertNoErr(err, t)
+	aesDecrypted, err := aesDecrypt(key, aesEncrypted)
+	assertNoErr(err, t)
+	aesDecryptedMessage := string(aesDecrypted[:])
+	assertEq(aesDecryptedMessage, aesMessage, t)
+	assertNe(aesEncrypted, []byte(aesMessage), t)
+
+	// Test encrypting an AES key with RSA
+	encryptedKey, err := rsaEncrypt(publicKey, key)
+	assertNoErr(err, t)
+	decryptedKey, err := rsaDecrypt(privateKey, encryptedKey)
+	assertNoErr(err, t)
+	assertEq(decryptedKey, key, t)
+	assertNe(encryptedKey, key, t)
 }
 
 // Test server creation and serving
@@ -420,6 +473,209 @@ func TestLargeSend(t *testing.T) {
 	time.Sleep(waitTime)
 }
 
+// Test sending numerous messages
+func TestSendingNumerousMessages(t *testing.T) {
+	// Create server
+	server, serverEvent := NewServer[int, int]()
+	assert(!server.Serving(), t, "Server should not be serving")
+
+	// Start server
+	err := server.Start("127.0.0.1", 0)
+	assertNoErr(err, t)
+	assert(server.Serving(), t, "Server should be serving")
+	time.Sleep(waitTime)
+
+	// Check server address info
+	host, port, err := server.GetAddr()
+	assertNoErr(err, t)
+	assert(server.sock.Addr().String() == host+":"+strconv.Itoa(int(port)), t, "Address strings don't match")
+	fmt.Printf("Server address: %s:%d\n", host, port)
+
+	// Create client
+	client, clientEvent := NewClient[int, int]()
+	assert(!client.Connected(), t, "Client should not be connected")
+
+	// Connect to server
+	err = client.Connect(host, port)
+	assertNoErr(err, t)
+	assert(client.Connected(), t, "Client should be connected")
+	time.Sleep(waitTime)
+
+	// Check client address info
+	host, port, err = client.GetAddr()
+	assertNoErr(err, t)
+	assert(client.sock.LocalAddr().String() == host+":"+strconv.Itoa(int(port)), t, "Address strings don't match")
+	fmt.Printf("Client address: %s:%d\n", host, port)
+
+	// Check connect event was received
+	clientConnectEvent := <-serverEvent
+	assertEq(clientConnectEvent, ServerEvent[int]{
+		EventType: ServerConnect,
+		ClientID:  0,
+	}, t)
+
+	// Generate messages
+	numServerMessages := (rand.Int() % 64) + 64
+	numClientMessages := (rand.Int() % 128) + 128
+	serverMessages := make([]int, numServerMessages)
+	clientMessages := make([]int, numClientMessages)
+	for i := 0; i < numServerMessages; i++ {
+		serverMessages = append(serverMessages, rand.Int()%1024)
+	}
+	for i := 0; i < numClientMessages; i++ {
+		clientMessages = append(clientMessages, rand.Int()%1024)
+	}
+	fmt.Printf("Generated %d server messages\n", numServerMessages)
+	fmt.Printf("Generated %d client messages\n", numClientMessages)
+
+	// Send messages
+	for _, serverMessage := range serverMessages {
+		err := client.Send(serverMessage)
+		assertNoErr(err, t)
+	}
+	for _, clientMessage := range clientMessages {
+		err := server.Send(clientMessage)
+		assertNoErr(err, t)
+	}
+	time.Sleep(waitTime)
+
+	// Receive messages from client
+	for _, serverMessage := range serverMessages {
+		serverReceiveEvent := <-serverEvent
+		assertEq(serverReceiveEvent, ServerEvent[int]{
+			EventType: ServerReceive,
+			ClientID:  0,
+			Data:      serverMessage,
+		}, t)
+	}
+
+	// Receive messages from server
+	for _, clientMessage := range clientMessages {
+		clientReceiveEvent := <-clientEvent
+		assertEq(clientReceiveEvent, ClientEvent[int]{
+			EventType: ClientReceive,
+			Data:      clientMessage,
+		}, t)
+	}
+
+	// Disconnect from server
+	err = client.Disconnect()
+	assertNoErr(err, t)
+	time.Sleep(waitTime)
+
+	// Check disconnect event was received
+	clientDisconnectEvent := <-serverEvent
+	assertEq(clientDisconnectEvent, ServerEvent[int]{
+		EventType: ServerDisconnect,
+		ClientID:  0,
+	}, t)
+
+	// Stop server
+	err = server.Stop()
+	assertNoErr(err, t)
+	assert(!server.Serving(), t, "Server should not be serving")
+	time.Sleep(waitTime)
+}
+
+// Test sending custom types
+func TestSendingCustomTypes(t *testing.T) {
+	// Create server
+	server, serverEvent := NewServer[custom, custom]()
+	assert(!server.Serving(), t, "Server should not be serving")
+
+	// Start server
+	err := server.Start("127.0.0.1", 0)
+	assertNoErr(err, t)
+	assert(server.Serving(), t, "Server should be serving")
+	time.Sleep(waitTime)
+
+	// Check server address info
+	host, port, err := server.GetAddr()
+	assertNoErr(err, t)
+	assert(server.sock.Addr().String() == host+":"+strconv.Itoa(int(port)), t, "Address strings don't match")
+	fmt.Printf("Server address: %s:%d\n", host, port)
+
+	// Create client
+	client, clientEvent := NewClient[custom, custom]()
+	assert(!client.Connected(), t, "Client should not be connected")
+
+	// Connect to server
+	err = client.Connect(host, port)
+	assertNoErr(err, t)
+	assert(client.Connected(), t, "Client should be connected")
+	time.Sleep(waitTime)
+
+	// Check client address info
+	host, port, err = client.GetAddr()
+	assertNoErr(err, t)
+	assert(client.sock.LocalAddr().String() == host+":"+strconv.Itoa(int(port)), t, "Address strings don't match")
+	fmt.Printf("Client address: %s:%d\n", host, port)
+
+	// Check connect event was received
+	clientConnectEvent := <-serverEvent
+	assertEq(clientConnectEvent, ServerEvent[custom]{
+		EventType: ServerConnect,
+		ClientID:  0,
+	}, t)
+
+	// Messages
+	serverMessage := custom{
+		A: 123,
+		B: "Hello, custom server class!",
+		C: []string{"first server item", "second server item"},
+	}
+	clientMessage := custom{
+		A: 456,
+		B: "Hello, custom client class!",
+		C: []string{"#1 client item", "client item #2", "(3) client item"},
+	}
+
+	// Send message to client
+	err = server.Send(clientMessage)
+	assertNoErr(err, t)
+	time.Sleep(waitTime)
+
+	// Receive message from server
+	clientReceiveEvent1 := <-clientEvent
+	assertEq(clientReceiveEvent1, ClientEvent[custom]{
+		EventType: ClientReceive,
+		Data:      clientMessage,
+	}, t)
+	time.Sleep(waitTime)
+
+	// Send message to server
+	err = client.Send(serverMessage)
+	assertNoErr(err, t)
+	time.Sleep(waitTime)
+
+	// Receive message from client
+	serverReceiveEvent := <-serverEvent
+	assertEq(serverReceiveEvent, ServerEvent[custom]{
+		EventType: ServerReceive,
+		ClientID:  0,
+		Data:      serverMessage,
+	}, t)
+	time.Sleep(waitTime)
+
+	// Disconnect from server
+	err = client.Disconnect()
+	assertNoErr(err, t)
+	time.Sleep(waitTime)
+
+	// Check disconnect event was received
+	clientDisconnectEvent := <-serverEvent
+	assertEq(clientDisconnectEvent, ServerEvent[custom]{
+		EventType: ServerDisconnect,
+		ClientID:  0,
+	}, t)
+
+	// Stop server
+	err = server.Stop()
+	assertNoErr(err, t)
+	assert(!server.Serving(), t, "Server should not be serving")
+	time.Sleep(waitTime)
+}
+
 // Test having multiple clients connected, and process events from them individually
 func TestMultipleClients(t *testing.T) {
 	// Create server
@@ -498,14 +754,14 @@ func TestMultipleClients(t *testing.T) {
 		ClientID:  1,
 	}, t)
 
-	// Check that first client addresses match
-	host5, port5, err := client1.GetAddr()
+	// Check that second client addresses match
+	host5, port5, err := client2.GetAddr()
 	assertNoErr(err, t)
-	host6, port6, err := server.GetClientAddr(0)
+	host6, port6, err := server.GetClientAddr(1)
 	assertNoErr(err, t)
 	assert(host5 == host6, t, "Client 2 hosts do not match")
 	assert(port5 == port6, t, "Client 2 ports do not match")
-	host7, port7, err := client1.GetServerAddr()
+	host7, port7, err := client2.GetServerAddr()
 	assertNoErr(err, t)
 	host8, port8, err := server.GetAddr()
 	assertNoErr(err, t)

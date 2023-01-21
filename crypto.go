@@ -10,13 +10,19 @@ import (
 	"io"
 )
 
+// The RSA key size
+const rsaKeySize = 2048
+
+// The AES key size
+const aesKeySize = 32
+
 // Message label
 const msgLabel = "message"
 
-// Generate a new 2048-bit RSA key pair
+// Generate a new RSA key pair
 func newRSAKeys() (*rsa.PrivateKey, error) {
 	rng := rand.Reader
-	privateKey, err := rsa.GenerateKey(rng, 2048)
+	privateKey, err := rsa.GenerateKey(rng, rsaKeySize)
 	return privateKey, err
 }
 
@@ -36,9 +42,9 @@ func rsaDecrypt(privateKey *rsa.PrivateKey, ciphertext []byte) ([]byte, error) {
 	return plaintext, err
 }
 
-// Generate a new 256-bit AES key
+// Generate a new AES key
 func newAESKey() ([]byte, error) {
-	key := make([]byte, 32)
+	key := make([]byte, aesKeySize)
 	_, err := rand.Read(key)
 	return key, err
 }
@@ -51,12 +57,12 @@ func aesEncrypt(key, plaintext []byte) ([]byte, error) {
 	}
 
 	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
-	iv := ciphertext[:aes.BlockSize]
-	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+	nonce := ciphertext[:aes.BlockSize]
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		return []byte{}, err
 	}
 
-	cfb := cipher.NewCFBEncrypter(block, iv)
+	cfb := cipher.NewCFBEncrypter(block, nonce)
 	cfb.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
 	return ciphertext, nil
 }
@@ -72,9 +78,9 @@ func aesDecrypt(key []byte, ciphertext []byte) ([]byte, error) {
 		return []byte{}, fmt.Errorf("ciphertext too short")
 	}
 
-	iv := ciphertext[:aes.BlockSize]
+	nonce := ciphertext[:aes.BlockSize]
 	plaintext := ciphertext[aes.BlockSize:]
-	cfb := cipher.NewCFBDecrypter(block, iv)
+	cfb := cipher.NewCFBDecrypter(block, nonce)
 	cfb.XORKeyStream(plaintext, plaintext)
 	return plaintext, nil
 }

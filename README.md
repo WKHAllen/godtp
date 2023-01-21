@@ -1,4 +1,4 @@
-# Go Data Transfer Protocol
+# Data Transfer Protocol for Go
 
 Cross-platform networking interfaces for Go.
 
@@ -44,7 +44,7 @@ func main() {
 			fmt.Printf("Client with ID %d disconnected\n", event.ClientID)
 		case godtp.ServerReceive:
 			// Send back the length of the string
-			err := server.Send(len(event.Data))
+			err := server.Send(len(event.Data), event.ClientID)
 			if err != nil {
 				// Handle send error
 			}
@@ -87,11 +87,11 @@ func main() {
 		// Validate the response
 		fmt.Printf("Received response from server: %d", event.Data)
 		if event.Data != len(message) {
-			fmt.Errorf("invalid response: expected %d, received %d", len(message), event.Data)
+			fmt.Printf("Invalid response: expected %d, received %d", len(message), event.Data)
 		}
 	default:
 		// Unexpected response
-		fmt.Errorf("expected to receive a response from the server, instead got %#v\n", event)
+		fmt.Printf("Expected to receive a response from the server, instead got %#v\n", event)
 	}
 }
 ```
