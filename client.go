@@ -29,7 +29,7 @@ type Client[S any, R any] struct {
 	connected    bool
 	sock         net.Conn
 	key          []byte
-	eventChannel chan ClientEvent[R]
+	eventChannel chan<- ClientEvent[R]
 	wg           sync.WaitGroup
 }
 
@@ -174,10 +174,8 @@ func (client *Client[S, R]) handle() {
 
 	if client.connected {
 		client.connected = false
-		err := client.sock.Close()
-		if err != nil {
-			// Do nothing for these errors
-		}
+		// Ignore socket close error
+		client.sock.Close()
 
 		client.eventChannel <- ClientEvent[R]{
 			EventType: ClientDisconnected,
@@ -200,6 +198,9 @@ func (client *Client[S, R]) exchangeKeys() error {
 	}
 
 	encryptedKey, err := rsaEncrypt(pub, key)
+	if err != nil {
+		return err
+	}
 
 	size := encodeMessageSize(uint64(len(encryptedKey)))
 	buffer := append(size, encryptedKey...)

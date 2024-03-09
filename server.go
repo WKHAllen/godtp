@@ -31,7 +31,7 @@ type Server[S any, R any] struct {
 	sock         net.Listener
 	clients      map[uint]net.Conn
 	keys         map[uint][]byte
-	eventChannel chan ServerEvent[R]
+	eventChannel chan<- ServerEvent[R]
 	wg           sync.WaitGroup
 	nextClientID uint
 }
