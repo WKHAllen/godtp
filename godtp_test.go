@@ -10,10 +10,6 @@ import (
 	"time"
 )
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
 // Amount of time to wait between network operations
 const waitTime = 100 * time.Millisecond
 
