@@ -1,6 +1,7 @@
 package godtp
 
 import (
+	cryptorand "crypto/rand"
 	"fmt"
 	"math/rand"
 	"reflect"
@@ -418,13 +419,13 @@ func TestLargeSend(t *testing.T) {
 	// Generate large messages
 	largeMessageFromServerLength := rand.Int() % 65536
 	largeMessageFromServer := make([]byte, largeMessageFromServerLength)
-	n, err := rand.Read(largeMessageFromServer)
+	n, err := cryptorand.Read(largeMessageFromServer)
 	assertNoErr(err, t)
 	assertEq(n, largeMessageFromServerLength, t)
 	fmt.Printf("Generated large message from server (%d bytes)\n", largeMessageFromServerLength)
 	largeMessageFromClientLength := rand.Int() % 32768
 	largeMessageFromClient := make([]byte, largeMessageFromClientLength)
-	n, err = rand.Read(largeMessageFromClient)
+	n, err = cryptorand.Read(largeMessageFromClient)
 	assertNoErr(err, t)
 	assertEq(n, largeMessageFromClientLength, t)
 	fmt.Printf("Generated large message from client (%d bytes)\n", largeMessageFromClientLength)
